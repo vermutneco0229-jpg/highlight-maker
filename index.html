@@ -1,0 +1,1652 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>インスタハイライトメーカー</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:wght@500;600&family=Montserrat:wght@400;500;600&family=Noto+Sans+JP:wght@400;500;700&family=Noto+Serif+JP:wght@400;500;600&family=Quicksand:wght@500;600&family=Shippori+Mincho:wght@400;500;600&family=Zen+Maru+Gothic:wght@400;500;700&display=swap" rel="stylesheet">
+<script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+<style>
+/* ============================================================
+   アプリUI
+============================================================ */
+:root{
+  --ui-bg:#f2f0ed; --ui-panel:#ffffff; --ui-border:#e2ddd6; --ui-text:#3d3a36;
+  --ui-sub:#8a847b; --ui-accent:#a5805a; --ui-accent-soft:#f3ebe2;
+}
+*{box-sizing:border-box; margin:0; padding:0;}
+html,body{height:100%; overflow:hidden;}
+body{
+  font-family:"Hiragino Sans","Noto Sans JP",system-ui,sans-serif;
+  background:var(--ui-bg); color:var(--ui-text); font-size:13px;
+}
+button{font-family:inherit; cursor:pointer;}
+input,textarea,select{font-family:inherit; font-size:13px; color:var(--ui-text);}
+
+#topbar{
+  height:52px; background:var(--ui-panel); border-bottom:1px solid var(--ui-border);
+  display:flex; align-items:center; gap:10px; padding:0 16px; position:relative; z-index:10;
+}
+#topbar .logo{font-weight:700; font-size:14px; letter-spacing:.05em; margin-right:6px; white-space:nowrap;}
+#topbar .logo small{color:var(--ui-accent); font-weight:600; display:block; font-size:9px; letter-spacing:.2em;}
+#projectSelect{
+  min-width:200px; max-width:300px; padding:7px 10px; border:1px solid var(--ui-border);
+  border-radius:8px; background:#fff;
+}
+.tb-btn{
+  padding:7px 12px; border:1px solid var(--ui-border); background:#fff; border-radius:8px;
+  font-size:12px; white-space:nowrap; transition:background .15s;
+}
+.tb-btn:hover{background:var(--ui-accent-soft);}
+.tb-btn.danger:hover{background:#fbeaea; border-color:#e5bcbc; color:#b05050;}
+#storageMeter{margin-left:auto; color:var(--ui-sub); font-size:11px; white-space:nowrap;}
+
+#app{
+  display:grid; grid-template-columns:252px minmax(340px,1fr) minmax(360px,46%);
+  height:calc(100% - 52px); position:relative; z-index:5;
+}
+.panel{overflow-y:auto; background:var(--ui-bg);}
+#sidebar{background:var(--ui-panel); border-right:1px solid var(--ui-border); padding:14px 12px 24px;}
+#editor{padding:16px 18px 60px; border-right:1px solid var(--ui-border);}
+#previewPane{background:#e9e6e1; display:flex; flex-direction:column; overflow:hidden;}
+
+.side-label{
+  font-size:10px; letter-spacing:.18em; color:var(--ui-sub); font-weight:600;
+  margin:14px 4px 8px;
+}
+.side-label:first-child{margin-top:2px;}
+
+/* テーマ選択 */
+.theme-grid{display:flex; flex-direction:column; gap:6px;}
+.theme-btn{
+  display:flex; align-items:center; gap:9px; padding:8px 10px; border:1.5px solid var(--ui-border);
+  border-radius:9px; background:#fff; text-align:left; font-size:12px;
+}
+.theme-btn.active{border-color:var(--ui-accent); background:var(--ui-accent-soft); font-weight:600;}
+.theme-dots{display:flex; flex-shrink:0;}
+.theme-dots span{width:16px; height:16px; border-radius:50%; border:1px solid rgba(0,0,0,.12); margin-left:-5px;}
+.theme-dots span:first-child{margin-left:0;}
+
+/* カラー選択 */
+#colorRow{display:flex; gap:8px; flex-wrap:wrap; padding:2px 4px 4px;}
+.color-sw{
+  width:28px; height:28px; border-radius:50%; border:2px solid #fff;
+  box-shadow:0 0 0 1.5px var(--ui-border); cursor:pointer; padding:0;
+}
+.color-sw.active{box-shadow:0 0 0 2.5px var(--ui-accent);}
+
+/* ページ一覧 */
+#pageList{display:flex; flex-direction:column; gap:5px;}
+.pl-item{
+  display:flex; align-items:center; gap:6px; padding:7px 8px; border:1.5px solid var(--ui-border);
+  border-radius:9px; background:#fff; cursor:pointer;
+}
+.pl-item.active{border-color:var(--ui-accent); background:var(--ui-accent-soft);}
+.pl-item .pl-num{
+  width:20px; height:20px; border-radius:6px; background:var(--ui-bg); color:var(--ui-sub);
+  font-size:10px; display:flex; align-items:center; justify-content:center; font-weight:600; flex-shrink:0;
+}
+.pl-item.active .pl-num{background:var(--ui-accent); color:#fff;}
+.pl-item .pl-title{flex:1; min-width:0; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; font-size:12px;}
+.pl-item .pl-type{color:var(--ui-sub); font-size:9.5px; display:block;}
+.pl-ops{display:flex; gap:2px; opacity:0; transition:opacity .12s;}
+.pl-item:hover .pl-ops{opacity:1;}
+.pl-ops button{
+  border:none; background:none; color:var(--ui-sub); font-size:12px; padding:2px 3px; border-radius:4px; line-height:1;
+}
+.pl-ops button:hover{background:var(--ui-bg); color:var(--ui-text);}
+#addPageRow{display:flex; gap:6px; margin-top:8px;}
+#addPageType{flex:1; padding:7px 8px; border:1px solid var(--ui-border); border-radius:8px; background:#fff; font-size:12px; min-width:0;}
+#addPageBtn{
+  padding:7px 12px; border:none; border-radius:8px; background:var(--ui-accent); color:#fff; font-weight:600; font-size:12px;
+}
+.side-note{margin-top:16px; padding:10px 11px; background:var(--ui-bg); border-radius:9px; color:var(--ui-sub); font-size:11px; line-height:1.7;}
+
+/* エディタフォーム */
+.ed-head{margin-bottom:14px;}
+.ed-head h2{font-size:15px;}
+.ed-head .ed-type{color:var(--ui-accent); font-size:11px; font-weight:600; letter-spacing:.08em;}
+.field{margin-bottom:13px;}
+.field>label{display:block; font-size:11.5px; font-weight:600; margin-bottom:5px; color:#5a554e;}
+.field input[type=text], .field textarea{
+  width:100%; padding:8px 10px; border:1px solid var(--ui-border); border-radius:8px; background:#fff;
+  line-height:1.6;
+}
+.field textarea{resize:vertical;}
+.field input:focus, .field textarea:focus{outline:2px solid var(--ui-accent-soft); border-color:var(--ui-accent);}
+.field .help{font-size:10.5px; color:var(--ui-sub); margin-top:4px;}
+.fmt-help{
+  margin:-2px 0 14px; padding:8px 11px; background:var(--ui-accent-soft); border-radius:8px;
+  font-size:11px; color:#7a6449; line-height:1.7;
+}
+.fmt-help code{background:#fff; padding:1px 5px; border-radius:4px; font-size:10.5px;}
+
+.chk-field{display:flex; align-items:center; gap:8px; margin:16px 0 10px;}
+.chk-field input{width:16px; height:16px; accent-color:var(--ui-accent);}
+.chk-field label{font-size:12.5px; font-weight:600;}
+
+/* 画像フィールド */
+.img-field{display:flex; align-items:center; gap:10px;}
+.img-thumb{
+  width:74px; height:74px; border-radius:8px; object-fit:cover; border:1px solid var(--ui-border); background:#fff;
+}
+.img-empty{
+  width:74px; height:74px; border-radius:8px; border:1.5px dashed var(--ui-border); background:#fff;
+  display:flex; align-items:center; justify-content:center; color:var(--ui-sub); font-size:10px;
+}
+.img-btns{display:flex; flex-direction:column; gap:5px;}
+.img-btns button{padding:6px 12px; border:1px solid var(--ui-border); border-radius:7px; background:#fff; font-size:11.5px;}
+.img-btns button:hover{background:var(--ui-accent-soft);}
+
+/* 行リスト（メニュー・Q&A等） */
+.rows-wrap{display:flex; flex-direction:column; gap:8px;}
+.row-card{border:1px solid var(--ui-border); border-radius:9px; background:#fff; padding:9px 10px; position:relative;}
+.row-card .row-del{
+  position:absolute; top:6px; right:6px; border:none; background:none; color:var(--ui-sub);
+  font-size:13px; padding:2px 5px; border-radius:5px;
+}
+.row-card .row-del:hover{background:#fbeaea; color:#b05050;}
+.row-card .rc-field{margin-bottom:7px;}
+.row-card .rc-field:last-child{margin-bottom:0;}
+.row-card .rc-field label{display:block; font-size:10px; color:var(--ui-sub); font-weight:600; margin-bottom:3px;}
+.row-card input, .row-card textarea{
+  width:100%; padding:6px 8px; border:1px solid var(--ui-border); border-radius:6px; font-size:12.5px; line-height:1.55;
+}
+.row-add{
+  margin-top:2px; padding:7px; border:1.5px dashed var(--ui-border); background:none; border-radius:8px;
+  color:var(--ui-sub); font-size:12px; width:100%;
+}
+.row-add:hover{border-color:var(--ui-accent); color:var(--ui-accent);}
+.ed-empty{color:var(--ui-sub); text-align:center; margin-top:80px; line-height:2;}
+
+/* プレビュー */
+#pvToolbar{
+  display:flex; align-items:center; gap:8px; padding:10px 14px; background:var(--ui-panel);
+  border-bottom:1px solid var(--ui-border); flex-wrap:wrap;
+}
+#pvToolbar .pv-label{font-size:10px; letter-spacing:.15em; color:var(--ui-sub); font-weight:600; margin-right:auto;}
+.pv-btn{
+  padding:7px 13px; border:1px solid var(--ui-accent); background:#fff; color:var(--ui-accent);
+  border-radius:8px; font-size:12px; font-weight:600; white-space:nowrap;
+}
+.pv-btn:hover{background:var(--ui-accent-soft);}
+.pv-btn.primary{background:var(--ui-accent); color:#fff;}
+.pv-btn.primary:hover{opacity:.9;}
+#pvScroll{flex:1; overflow:auto; padding:24px;}
+#pvScale{transform-origin:top left; box-shadow:0 8px 40px rgba(60,50,40,.25);}
+#pvPageNav{
+  display:flex; align-items:center; justify-content:center; gap:14px; padding:9px;
+  background:var(--ui-panel); border-top:1px solid var(--ui-border); font-size:12px; color:var(--ui-sub);
+}
+#pvPageNav button{border:1px solid var(--ui-border); background:#fff; border-radius:7px; padding:4px 12px; font-size:12px;}
+#pvPageNav button:hover{background:var(--ui-accent-soft);}
+
+/* 書き出しステージ（画面裏に実寸レンダリング） */
+#exportStage{position:fixed; top:0; left:0; z-index:-10; width:1080px; pointer-events:none;}
+
+/* 書き出し中オーバーレイ */
+#busy{
+  position:fixed; inset:0; z-index:100; background:rgba(45,40,35,.55); display:none;
+  align-items:center; justify-content:center;
+}
+#busy.show{display:flex;}
+#busy .busy-box{
+  background:#fff; border-radius:14px; padding:26px 44px; text-align:center; font-size:14px; font-weight:600;
+}
+#busy .busy-sub{font-size:12px; color:var(--ui-sub); margin-top:8px; font-weight:400;}
+
+/* ============================================================
+   ストーリー用紙面（1080×1920 実寸）
+============================================================ */
+.sheet{
+  width:1080px; height:1920px; background:var(--paper); color:var(--text);
+  font-family:var(--font-body); position:relative; overflow:hidden;
+  display:flex; flex-direction:column; font-feature-settings:"palt";
+}
+.sheet-header{
+  height:370px; flex:none; background:var(--header-bg);
+  display:flex; flex-direction:column; align-items:center; justify-content:flex-start; gap:26px;
+  text-align:center; padding:132px 60px 0;
+}
+.eyebrow{
+  font-family:var(--font-en); font-size:31px; letter-spacing:.45em; text-indent:.45em;
+  color:var(--eyebrow, var(--accent)); font-weight:500;
+}
+.eyebrow.jp{
+  font-family:var(--font-body); font-size:33px; letter-spacing:.2em; text-indent:.2em; line-height:1.6;
+}
+.sheet-title{
+  font-size:58px; letter-spacing:.18em; text-indent:.18em; font-weight:600;
+  color:var(--header-title, var(--text)); line-height:1.45;
+}
+.sheet-body{
+  flex:1; min-height:0; padding:104px 102px 116px; display:flex; flex-direction:column; gap:64px;
+}
+.sheet-body.tight{gap:48px;}
+.sheet-body.nopad{padding:0;}
+.next{
+  position:absolute; right:0; bottom:132px; background:var(--next-bg); color:var(--next-color);
+  font-family:var(--font-en); font-size:34px; letter-spacing:.3em; padding:24px 56px 24px 64px;
+  font-weight:500; z-index:3;
+}
+/* 装飾テキスト */
+.ac{color:var(--accent-deep); font-weight:700;}
+.hl{background:linear-gradient(transparent 58%, var(--marker) 58%); padding:0 2px;}
+.body-text{font-size:42px; line-height:2.05; letter-spacing:.04em;}
+.body-text.center{text-align:center;}
+.lead{font-size:43px; line-height:2; letter-spacing:.05em; text-align:center;}
+.small-note{font-size:29px; line-height:1.9; color:var(--sub-text, #8d8d8d); letter-spacing:.03em;}
+
+/* 写真 */
+.photo-fill{flex:1; min-height:0; position:relative;}
+.photo-fill img{width:100%; height:100%; object-fit:cover; display:block;}
+.photo-row{flex:1; min-height:0; display:flex; gap:8px;}
+.photo-row .photo-fill{flex:1;}
+
+/* 罫線ボックス */
+.frame-box{
+  border:3px solid var(--box-border); border-radius:16px; padding:66px 64px;
+  display:flex; flex-direction:column; gap:44px; flex:none;
+}
+.frame-box .fb-item{font-size:43px; line-height:1.7; letter-spacing:.04em; display:flex; gap:20px;}
+.fb-item .mark{color:var(--accent); flex:none; font-weight:600;}
+
+/* 挨拶・スタッフ帯 */
+.intro-band{
+  background:var(--band); margin:0 -102px; padding:64px 102px;
+  display:flex; align-items:center; gap:64px; flex:none;
+}
+.intro-photo{width:390px; height:470px; object-fit:cover; flex:none; display:block;}
+.intro-name .nm{font-size:58px; letter-spacing:.14em; font-weight:600;}
+.intro-name .rm{
+  font-family:var(--font-en); font-size:31px; letter-spacing:.22em; color:var(--accent);
+  margin-top:22px; font-weight:500;
+}
+.intro-name .rl{font-size:31px; color:var(--sub-text,#8d8d8d); margin-top:14px; letter-spacing:.1em;}
+
+/* メニュー */
+.menu-list{display:flex; flex-direction:column; flex:none;}
+.menu-row{
+  display:flex; align-items:baseline; gap:30px; padding:34px 6px;
+  border-bottom:2px solid var(--line);
+}
+.menu-row:first-child{padding-top:6px;}
+.menu-row .mi{flex:1; min-width:0;}
+.menu-row .mn{font-size:41px; letter-spacing:.04em; line-height:1.5;}
+.menu-row .mnote{font-size:28px; color:var(--sub-text,#8d8d8d); margin-top:8px; line-height:1.6;}
+.menu-row .mp{
+  font-size:41px; font-weight:600; color:var(--accent-deep); white-space:nowrap;
+  font-family:var(--font-en-num, var(--font-body)); letter-spacing:.04em;
+}
+
+/* Q&A */
+.qa-list{display:flex; flex-direction:column; gap:54px; flex:none;}
+.qa .q{display:flex; gap:26px; align-items:flex-start; font-size:42px; font-weight:600; line-height:1.7; letter-spacing:.03em;}
+.qa .a{
+  display:flex; gap:26px; align-items:flex-start; font-size:38px; line-height:1.85; letter-spacing:.03em;
+  margin-top:22px; padding:36px 40px; background:var(--band); border-radius:12px;
+}
+.qa .qm,.qa .am{font-family:var(--font-en); font-weight:600; color:var(--accent); flex:none; font-size:40px; line-height:1.7;}
+
+/* サロン情報 */
+.info-list{display:flex; flex-direction:column; flex:none;}
+.info-row{display:flex; gap:44px; padding:38px 4px; border-bottom:2px solid var(--line); align-items:flex-start;}
+.info-row:first-child{padding-top:8px;}
+.info-row .il{
+  width:230px; flex:none; font-size:33px; letter-spacing:.14em; color:var(--accent);
+  font-weight:600; line-height:1.8; padding-top:3px;
+}
+.info-row .iv{flex:1; font-size:38px; line-height:1.8; letter-spacing:.03em;}
+
+/* 予約ステップ */
+.step-list{display:flex; flex-direction:column; gap:0; flex:none;}
+.step{display:flex; gap:48px; align-items:flex-start; position:relative; padding-bottom:74px;}
+.step:last-child{padding-bottom:0;}
+.step:not(:last-child)::before{
+  content:""; position:absolute; left:59px; top:130px; bottom:14px; width:2px; background:var(--box-border);
+}
+.step .sn{
+  width:120px; height:120px; border-radius:50%; border:3px solid var(--accent); color:var(--accent);
+  font-family:var(--font-en); font-size:44px; font-weight:600; flex:none;
+  display:flex; align-items:center; justify-content:center; background:var(--paper); position:relative; z-index:1;
+}
+.step .st{font-size:43px; font-weight:600; letter-spacing:.05em; line-height:1.6; padding-top:24px;}
+.step .sd{font-size:34px; line-height:1.85; color:var(--sub-text,#777); margin-top:16px; letter-spacing:.03em;}
+
+/* キャンペーン */
+.camp-box{
+  border:3px solid var(--box-border); border-radius:16px; padding:70px 60px; text-align:center;
+  display:flex; flex-direction:column; gap:40px; flex:none;
+}
+.camp-catch{font-size:38px; letter-spacing:.1em; color:var(--accent);}
+.camp-offer{font-size:56px; font-weight:600; line-height:1.6; letter-spacing:.06em;}
+.camp-period{
+  font-size:34px; letter-spacing:.08em; background:var(--band); border-radius:100px;
+  padding:20px 40px; align-self:center;
+}
+
+/* メニュー詳細（価格つき） */
+.md-box{background:var(--band); padding:58px 44px; text-align:center; flex:none;}
+.md-box-t{font-size:47px; color:var(--accent-deep); letter-spacing:.08em; font-weight:600; line-height:1.6;}
+.md-box-s{font-size:33px; margin-top:16px; letter-spacing:.06em;}
+.md-price{display:flex; align-items:center; justify-content:center; gap:20px 24px; flex-wrap:wrap; flex:none;}
+.md-was,.md-now{display:inline-flex; align-items:center; gap:22px; white-space:nowrap;}
+.md-old{font-size:36px; text-decoration:line-through; color:var(--sub-text);}
+.md-arrow{font-size:38px; color:var(--sub-text);}
+.md-badge{background:var(--price-badge,#c4635a); color:#fff; font-size:31px; padding:8px 22px; letter-spacing:.1em;}
+.md-new{font-size:56px; color:var(--price-hot,#b5544c); font-weight:600; letter-spacing:.03em;}
+.md-new small{font-size:33px; font-weight:400;}
+/* カード型（スモーキー）は本文幅が狭いため価格まわりを一回り小さく */
+.layout-card .md-old{font-size:31px;}
+.layout-card .md-arrow{font-size:33px;}
+.layout-card .md-badge{font-size:28px; padding:7px 18px;}
+.layout-card .md-new{font-size:47px;}
+
+/* ご予約方法（番号リスト） */
+.rsv-list{display:flex; flex-direction:column; flex:none;}
+.rsv-item{display:flex; gap:30px; align-items:baseline; font-size:45px; padding:36px 0 0;}
+.rsv-num{font-family:var(--font-en); color:var(--accent-deep); font-size:50px; font-weight:600; flex:none;}
+.rsv-tx{flex:1; border-bottom:2px solid var(--box-border); padding-bottom:18px; letter-spacing:.06em; line-height:1.6;}
+.rsv-btn{
+  background:var(--accent); color:#fff; text-align:center; font-size:31px; padding:32px 20px;
+  margin-top:40px; letter-spacing:.12em; font-weight:600; border-radius:6px;
+}
+
+/* こんな方におすすめ */
+.rec-sub{
+  text-align:center; color:var(--accent-deep); font-size:44px; letter-spacing:.22em; text-indent:.22em;
+  font-weight:600; flex:none;
+}
+.rec-list{display:flex; flex-direction:column; gap:14px; flex:none;}
+.rec-item{font-size:40px; line-height:1.85; padding:14px 0; display:flex; gap:20px; letter-spacing:.04em;}
+.rec-item .mark{color:var(--text); flex:none;}
+
+/* お客様の声 */
+.voice-list{display:flex; flex-direction:column; gap:70px; flex:none;}
+.voice .v-head{display:flex; align-items:baseline; gap:24px;}
+.voice .v-stars{color:#e8a33d; font-size:37px; letter-spacing:.08em;}
+.voice .v-meta{color:var(--sub-text); font-size:28px;}
+.voice .v-body{font-size:37px; line-height:1.95; margin-top:30px; letter-spacing:.03em;}
+.voice + .voice{border-top:2px solid var(--line); padding-top:64px;}
+
+/* 年表（実績・経歴） */
+.hist-list{display:flex; flex-direction:column; gap:58px; flex:none;}
+.hist .hy{font-size:40px; font-weight:700; letter-spacing:.08em; color:var(--accent-deep);}
+.hist .ht{font-size:37px; line-height:1.85; margin-top:12px; letter-spacing:.03em;}
+
+/* ============================================================
+   カード型レイアウト（スモーキー系テーマ）
+============================================================ */
+.layout-card{background:var(--paper);}
+.layout-card .card-page{
+  position:relative; flex:1; min-height:0; background:var(--paper);
+  overflow:hidden; display:flex;
+}
+.layout-card .card-band{
+  width:128px; flex:none; background:var(--bandbar);
+  display:flex; justify-content:center; align-items:flex-end; padding-bottom:110px;
+}
+.band-text{
+  font-size:31px; letter-spacing:.08em; line-height:1.7; text-align:center;
+  color:var(--band-text,#5d6175); font-family:var(--font-body);
+}
+.bt-gap{display:inline-block; height:30px;}
+.layout-card .card-main{flex:1; min-width:0; display:flex; flex-direction:column;}
+.card-head{padding:132px 60px 0; text-align:center;}
+.card-head .card-notch{width:2px; height:58px; background:var(--box-border); margin:0 auto 44px;}
+.card-title{
+  font-size:46px; letter-spacing:.26em; text-indent:.26em; font-weight:600;
+  color:var(--accent-deep); line-height:1.5; white-space:nowrap;
+}
+.layout-card .sheet-body{padding:88px 84px 108px; gap:52px;}
+.layout-card .intro-band{margin:0 -84px; padding:56px 84px;}
+.layout-card .frame-box{padding:52px 52px; gap:38px;}
+.layout-card .fb-item{font-size:39px; line-height:1.75;}
+.layout-card .body-text{font-size:40px; line-height:2;}
+.layout-card .next{
+  right:58px; bottom:150px; border:2px solid var(--box-border); border-radius:100px;
+  background:var(--band); color:var(--text); padding:18px 52px 18px 58px; font-size:31px;
+}
+
+/* ============================================================
+   テーマ
+============================================================ */
+.theme-elegant{
+  --paper:#fff; --text:#4b4a4c; --accent:#b58a5f; --accent-deep:#a1743f;
+  --marker:#eae2d8; --box-border:#c9a479; --line:#e6e0d7; --band:#efeae4;
+  --sub-text:#918d88; --next-bg:#e5dccf; --next-color:#5c584f;
+  --font-body:'Shippori Mincho',serif; --font-en:'Cormorant Garamond',serif;
+  --header-bg:
+    radial-gradient(120% 100% at 12% 18%, rgba(255,255,255,.95), rgba(255,255,255,0) 55%),
+    radial-gradient(95% 130% at 88% 78%, rgba(196,194,204,.55), rgba(255,255,255,0) 58%),
+    radial-gradient(70% 65% at 62% 8%, rgba(215,212,221,.65), rgba(255,255,255,0) 55%),
+    radial-gradient(50% 70% at 30% 90%, rgba(207,204,214,.4), rgba(255,255,255,0) 60%),
+    linear-gradient(115deg,#f5f4f7 0%,#e8e7ed 38%,#f6f5f8 66%,#eae8ef 100%);
+}
+.theme-beige{
+  --paper:#fff; --text:#6b6259; --accent:#a98a68; --accent-deep:#96744e;
+  --marker:#efe6d8; --box-border:#cbb9a2; --line:#e8e1d5; --band:#f3efe7;
+  --sub-text:#a49a8d; --next-bg:#8d7a66; --next-color:#fff;
+  --font-body:'Shippori Mincho',serif; --font-en:'Cormorant Garamond',serif;
+  --header-bg:#ede7dc; --header-title:#6f6558;
+}
+.theme-beige .hl{background:none; border-bottom:2px solid var(--hl-line,#d3bfa4); padding:0 2px 5px;}
+.theme-natural{
+  --paper:#fefdfa; --text:#5b5145; --accent:#9a7a54; --accent-deep:#84663f;
+  --marker:#f0e4cf; --box-border:#cbb494; --line:#e7ddcc; --band:#f1e9da;
+  --sub-text:#9a8f7e; --next-bg:#e3d5bd; --next-color:#5b5145;
+  --font-body:'Zen Maru Gothic',sans-serif; --font-en:'Quicksand',sans-serif;
+  --header-bg:linear-gradient(160deg,#efe6d4 0%,#e9dfcb 55%,#f2ebdc 100%);
+  --header-title:#57493a;
+}
+.theme-mode{
+  --paper:#fff; --text:#242424; --accent:#1c1c1c; --accent-deep:#000;
+  --marker:#e9e9e9; --box-border:#2a2a2a; --line:#dedede; --band:#f2f2f2;
+  --sub-text:#8b8b8b; --next-bg:#1c1c1c; --next-color:#fff;
+  --font-body:'Noto Sans JP',sans-serif; --font-en:'Montserrat',sans-serif;
+  --header-bg:#111; --header-title:#fff; --eyebrow:#c9c9c9;
+}
+.theme-feminine{
+  --paper:#fffbfa; --text:#5f4d4d; --accent:#c98a97; --accent-deep:#b56e7e;
+  --marker:#f8e3e8; --box-border:#dcaab4; --line:#f0dde1; --band:#f9ecee;
+  --sub-text:#a6908f; --next-bg:#efd7dc; --next-color:#7a5f63;
+  --font-body:'Noto Serif JP',serif; --font-en:'Cormorant Garamond',serif;
+  --header-bg:linear-gradient(150deg,#fbeff1 0%,#f4dde2 52%,#fbf1f2 100%);
+  --header-title:#6e5356;
+}
+.theme-smoky{
+  --paper:#fff; --outer:#f1f1f5; --text:#4c5163; --accent:#5b6484; --accent-deep:#3d4661;
+  --marker:#dfe2ec; --box-border:#b9bfd3; --line:#e2e4ee; --band:#eef0f5;
+  --sub-text:#8f93a5; --bandbar:#c7cad9; --band-text:#5d6175;
+  --next-bg:#eef0f5; --next-color:#4c5163;
+  --font-body:'Shippori Mincho',serif; --font-en:'Cormorant Garamond',serif;
+  --header-bg:linear-gradient(150deg,#eceef4 0%,#dfe2ec 55%,#f0f1f6 100%);
+}
+.theme-smoky .hl{background:none; border-bottom:3px solid var(--hl-line,#c7cbdb); padding:0 2px 4px;}
+.theme-smoky .photo-fill{border:1px solid #d8dae4; padding:16px; background:#fff;}
+.theme-smoky .intro-photo{border:1px solid #d8dae4; padding:14px; background:#fff;}
+.theme-smoky .intro-band{background:none; padding-top:20px; padding-bottom:20px;}
+.theme-clean{
+  --paper:#fdfefe; --text:#3f4a50; --accent:#6d8b9a; --accent-deep:#527080;
+  --marker:#dfeaef; --box-border:#9db4bf; --line:#e0e8ec; --band:#eef3f5;
+  --sub-text:#8fa0a8; --next-bg:#d9e4e9; --next-color:#46565e;
+  --font-body:'Noto Sans JP',sans-serif; --font-en:'Montserrat',sans-serif;
+  --header-bg:linear-gradient(150deg,#eef3f5 0%,#e2ebef 55%,#f0f5f7 100%);
+}
+</style>
+</head>
+<body>
+
+<header id="topbar">
+  <div class="logo">ハイライトメーカー<small>STORY 1080×1920</small></div>
+  <select id="projectSelect" title="プロジェクト（サロン）を切り替え"></select>
+  <button class="tb-btn" id="btnNewProj">＋ 新規</button>
+  <button class="tb-btn" id="btnRenameProj" title="名前変更">✎</button>
+  <button class="tb-btn" id="btnDupProj" title="複製">⧉</button>
+  <button class="tb-btn danger" id="btnDelProj" title="削除">🗑</button>
+  <span id="storageMeter"></span>
+  <button class="tb-btn" id="btnExportJson">JSON書き出し</button>
+  <button class="tb-btn" id="btnImportJson">JSON読み込み</button>
+</header>
+
+<main id="app">
+  <aside id="sidebar" class="panel">
+    <div class="side-label">テーマ（トーンマナー）</div>
+    <div class="theme-grid" id="themeGrid"></div>
+    <div class="side-label">カラー（差し色）</div>
+    <div id="colorRow"></div>
+    <div class="side-label">ページ一覧</div>
+    <div id="pageList"></div>
+    <div id="addPageRow">
+      <select id="addPageType"></select>
+      <button id="addPageBtn">追加</button>
+    </div>
+    <div class="side-note">
+      💡 データは自動保存されます（このブラウザ内）。<br>
+      納品・バックアップには上部の「JSON書き出し」をご利用ください。
+    </div>
+  </aside>
+
+  <section id="editor" class="panel"></section>
+
+  <section id="previewPane">
+    <div id="pvToolbar">
+      <span class="pv-label">PREVIEW</span>
+      <button class="pv-btn" id="btnJpegOne">このページをJPEG</button>
+      <button class="pv-btn" id="btnJpegAll">全ページJPEG</button>
+      <button class="pv-btn primary" id="btnPdfAll">PDFで一括出力</button>
+    </div>
+    <div id="pvScroll"><div id="pvScale"></div></div>
+    <div id="pvPageNav">
+      <button id="pvPrev">← 前</button>
+      <span id="pvPos">- / -</span>
+      <button id="pvNext">次 →</button>
+    </div>
+  </section>
+</main>
+
+<div id="exportStage"></div>
+<div id="busy"><div class="busy-box"><div id="busyMsg">書き出し中…</div><div class="busy-sub" id="busySub"></div></div></div>
+<input type="file" id="imgFileInput" accept="image/*" hidden>
+<input type="file" id="jsonFileInput" accept="application/json,.json" hidden>
+
+<script>
+/* ============================================================
+   ユーティリティ
+============================================================ */
+const LS_KEY = 'igHighlightMaker.v1';
+const uid = () => Date.now().toString(36) + Math.random().toString(36).slice(2, 7);
+const esc = s => String(s ?? '').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
+function fmt(s){
+  return esc(s)
+    .replace(/\*\*([\s\S]+?)\*\*/g, '<b class="ac">$1</b>')
+    .replace(/==([\s\S]+?)==/g, '<span class="hl">$1</span>')
+    .replace(/\n/g, '<br>');
+}
+const safeName = s => String(s||'untitled').replace(/[\\/:*?"<>|]/g, '_');
+const hasJP = s => /[぀-ヿ㐀-鿿]/.test(String(s||''));
+
+/* ============================================================
+   画像ストレージ（IndexedDB。localStorageの約5MB制限を回避）
+   ページデータには "idb:<id>" の参照だけを保存する
+============================================================ */
+let idb = null;
+const imgCache = new Map();
+function idbOpen(){
+  return new Promise((res, rej)=>{
+    const q = indexedDB.open('igHighlightMakerImages', 1);
+    q.onupgradeneeded = ()=> q.result.createObjectStore('images');
+    q.onsuccess = ()=> res(q.result);
+    q.onerror = ()=> rej(q.error);
+  });
+}
+function idbPut(id, val){
+  return new Promise((res, rej)=>{
+    const tx = idb.transaction('images', 'readwrite');
+    tx.objectStore('images').put(val, id);
+    tx.oncomplete = res; tx.onerror = ()=> rej(tx.error);
+  });
+}
+function idbDel(id){
+  return new Promise((res, rej)=>{
+    const tx = idb.transaction('images', 'readwrite');
+    tx.objectStore('images').delete(id);
+    tx.oncomplete = res; tx.onerror = ()=> rej(tx.error);
+  });
+}
+function idbAll(){
+  return new Promise((res, rej)=>{
+    const tx = idb.transaction('images');
+    const st = tx.objectStore('images');
+    const ks = st.getAllKeys(); const vs = st.getAll();
+    tx.oncomplete = ()=>{ const m = new Map(); ks.result.forEach((k,i)=>m.set(k, vs.result[i])); res(m); };
+    tx.onerror = ()=> rej(tx.error);
+  });
+}
+/* "idb:xxx" 参照 → 表示用dataURL */
+const imgSrc = v => (typeof v === 'string' && v.startsWith('idb:')) ? (imgCache.get(v.slice(4)) || '') : (v || '');
+async function storeImage(dataUrl){
+  const id = uid();
+  await idbPut(id, dataUrl);
+  imgCache.set(id, dataUrl);
+  return 'idb:' + id;
+}
+
+/* ============================================================
+   テーマ定義
+============================================================ */
+const THEMES = {
+  elegant:  { label:'エレガント', desc:'大理石×ブロンズ・明朝', dots:['#e9e7ed','#b58a5f'] },
+  beige:    { label:'ベージュ', desc:'生成り×ブラウン・明朝', dots:['#ede7dc','#a98a68'] },
+  natural:  { label:'ナチュラル', desc:'ベージュ×ブラウン・丸ゴシック', dots:['#ecdfc9','#9a7a54'] },
+  feminine: { label:'フェミニン', desc:'ピンク×ローズ・明朝', dots:['#f6dde2','#c98a97'] },
+  smoky:    { label:'スモーキー', desc:'青グレー×カード・縦書き帯', dots:['#c7cad9','#3d4661'], card:true },
+  mode:     { label:'モード', desc:'黒×白・ゴシック', dots:['#111','#888'] },
+  clean:    { label:'クリーン', desc:'白×ブルーグレー', dots:['#e4edf0','#6d8b9a'] },
+};
+
+/* ============================================================
+   カラーバリエーション（テーマ内の差し色）
+   基準色1つから帯・ボックス・マーカー等の色を自動生成する
+============================================================ */
+const VARIANTS = {
+  elegant: [
+    {id:'default', label:'ブロンズ（標準）', hex:null},
+    {id:'rose',    label:'ローズベージュ', hex:'#c08a8a'},
+    {id:'sage',    label:'セージグリーン', hex:'#8f9a78'},
+    {id:'bluegray',label:'ブルーグレー', hex:'#7e8ba0'},
+    {id:'mauve',   label:'モーブ', hex:'#9a86a0'},
+  ],
+  beige: [
+    {id:'default', label:'ブラウン（標準）', hex:null},
+    {id:'terra',   label:'テラコッタ', hex:'#b5745a'},
+    {id:'olive',   label:'オリーブ', hex:'#94906a'},
+    {id:'rosebr',  label:'ローズブラウン', hex:'#b08277'},
+    {id:'graige',  label:'グレージュ', hex:'#93887b'},
+  ],
+  natural: [
+    {id:'default', label:'ブラウン（標準）', hex:null},
+    {id:'moss',    label:'モスグリーン', hex:'#7d8a5e'},
+    {id:'terra',   label:'テラコッタ', hex:'#b06e4f'},
+    {id:'mustard', label:'マスタード', hex:'#ab8c4b'},
+    {id:'cafe',    label:'カフェ', hex:'#85685a'},
+  ],
+  feminine: [
+    {id:'default', label:'ローズ（標準）', hex:null},
+    {id:'coral',   label:'コーラル', hex:'#cf8b72'},
+    {id:'mauve',   label:'モーブ', hex:'#a887b0'},
+    {id:'pinkbe',  label:'ピンクベージュ', hex:'#c29a8b'},
+    {id:'cherry',  label:'チェリー', hex:'#b96b7f'},
+  ],
+  smoky: [
+    {id:'default', label:'ブルーグレー（標準）', hex:null},
+    {id:'lavender',label:'ラベンダー', hex:'#837daa'},
+    {id:'slate',   label:'スレートグリーン', hex:'#5f7d7b'},
+    {id:'rosegray',label:'ローズグレー', hex:'#96777f'},
+    {id:'charcoal',label:'チャコール', hex:'#5a5f6a'},
+  ],
+  mode: [
+    {id:'default', label:'ブラック（標準）', hex:null},
+    {id:'navy',    label:'ネイビー', hex:'#243050'},
+    {id:'green',   label:'ダークグリーン', hex:'#28402f'},
+    {id:'bordeaux',label:'ボルドー', hex:'#502832'},
+    {id:'brown',   label:'ダークブラウン', hex:'#463830'},
+  ],
+  clean: [
+    {id:'default', label:'ブルーグレー（標準）', hex:null},
+    {id:'green',   label:'グリーン', hex:'#6f9a83'},
+    {id:'lavender',label:'ラベンダー', hex:'#8a87ad'},
+    {id:'sand',    label:'サンド', hex:'#a3906f'},
+    {id:'gray',    label:'グレー', hex:'#87909a'},
+  ],
+};
+
+function hexRgb(h){ h=h.replace('#',''); return [parseInt(h.slice(0,2),16), parseInt(h.slice(2,4),16), parseInt(h.slice(4,6),16)]; }
+function rgbHex(r,g,b){ return '#'+[r,g,b].map(v=>Math.round(Math.max(0,Math.min(255,v))).toString(16).padStart(2,'0')).join(''); }
+function mix(h1, h2, t){ const a=hexRgb(h1), b=hexRgb(h2); return rgbHex(a[0]+(b[0]-a[0])*t, a[1]+(b[1]-a[1])*t, a[2]+(b[2]-a[2])*t); }
+
+function currentBaseHex(){
+  const p = proj(); if(!p) return null;
+  const v = (VARIANTS[p.theme]||[]).find(x=>x.id===(p.color||'default'));
+  return v ? v.hex : null;
+}
+function paletteStyleAttr(theme){
+  const hex = currentBaseHex(); if(!hex) return '';
+  const L = t=>mix(hex,'#ffffff',t), D = t=>mix(hex,'#000000',t);
+  const v = {
+    '--accent':hex, '--accent-deep':D(0.18), '--marker':L(0.82), '--box-border':L(0.42),
+    '--band':L(0.88), '--line':L(0.84), '--hl-line':L(0.5), '--next-bg':L(0.7),
+  };
+  if(theme==='mode'){
+    v['--header-bg']=hex; v['--accent-deep']=hex; v['--next-bg']=hex; v['--next-color']='#fff'; v['--marker']=L(0.85);
+  }else if(['beige','natural','feminine','clean'].includes(theme)){
+    v['--header-bg']=L(0.82); v['--header-title']=D(0.5);
+  }
+  if(theme==='smoky'){
+    v['--bandbar']=L(0.68); v['--outer']=L(0.93); v['--band-text']=D(0.35);
+  }
+  return Object.entries(v).map(([k,val])=>k+':'+val).join(';');
+}
+
+/* ============================================================
+   ページタイプ定義
+   fields kind: text / ta(textarea) / img / tbl(行リスト) / chk
+============================================================ */
+const t   = (k,l,ph)=>({k,l,kind:'text',ph});
+const ta  = (k,l,rows=4)=>({k,l,kind:'ta',rows});
+const img = (k,l)=>({k,l,kind:'img'});
+const tbl = (k,l,cols,addLabel)=>({k,l,kind:'tbl',cols,addLabel});
+
+const PAGE_TYPES = {
+  intro: {
+    label:'挨拶・初めての方へ',
+    defaults:()=>({ eyebrow:'FOR VISITOR', title:'初めての方へ', photo:'', name:'お名前', roman:'Your Name', role:'', body:'サロンのご紹介文を入力してください。\n\n**強調したい部分**や\n==マーカーを引きたい部分==も\n指定できます。', showNext:false }),
+    fields:[ img('photo','スタッフ写真'), t('name','名前'), t('roman','ローマ字表記'), t('role','肩書き（任意）'), ta('body','本文', 8) ],
+    render:d=>`
+      ${ (d.photo || d.name) ? `
+      <div class="intro-band">
+        ${d.photo ? `<img class="intro-photo" src="${imgSrc(d.photo)}">` : ''}
+        <div class="intro-name">
+          <div class="nm">${fmt(d.name)}</div>
+          ${d.roman ? `<div class="rm">${esc(d.roman)}</div>` : ''}
+          ${d.role ? `<div class="rl">${fmt(d.role)}</div>` : ''}
+        </div>
+      </div>` : '' }
+      <div class="body-text">${fmt(d.body)}</div>`
+  },
+
+  points: {
+    label:'こだわり（箇条書き＋本文）',
+    defaults:()=>({ eyebrow:'CONCEPT', title:'当店のこだわり', items:[{text:'こだわりポイント 1'},{text:'こだわりポイント 2'},{text:'こだわりポイント 3'}], body:'補足の説明文を入力してください。', photo:'', showNext:false }),
+    fields:[ tbl('items','こだわりポイント',[{k:'text',l:'ポイント',kind:'text'}],'＋ ポイントを追加'), ta('body','本文（中央寄せ）',5), img('photo','写真（下部に配置）') ],
+    render:d=>`
+      <div class="frame-box">
+        ${(d.items||[]).map(i=>`<div class="fb-item"><span class="mark">・</span><span>${fmt(i.text)}</span></div>`).join('')}
+      </div>
+      ${d.body ? `<div class="lead">${fmt(d.body)}</div>` : ''}
+      ${d.photo ? `<div class="photo-fill"><img src="${imgSrc(d.photo)}"></div>` : ''}`
+  },
+
+  checklist: {
+    label:'こんな方に（チェックリスト）',
+    defaults:()=>({ eyebrow:'CHOOSE', title:'こんな方に選ばれています', items:[{text:'お悩み 1'},{text:'お悩み 2'},{text:'お悩み 3'}], caption:'こういった方に選ばれています。', photo:'', photo2:'', showNext:false }),
+    fields:[ tbl('items','チェック項目',[{k:'text',l:'項目',kind:'text'}],'＋ 項目を追加'), t('caption','ひとこと（中央寄せ）'), img('photo','写真①'), img('photo2','写真②（任意・横並び）') ],
+    render:d=>`
+      <div class="frame-box">
+        ${(d.items||[]).map(i=>`<div class="fb-item"><span class="mark">✓</span><span>${fmt(i.text)}</span></div>`).join('')}
+      </div>
+      ${d.caption ? `<div class="lead">${fmt(d.caption)}</div>` : ''}
+      ${d.photo ? `<div class="photo-row"><div class="photo-fill"><img src="${imgSrc(d.photo)}"></div>${d.photo2 ? `<div class="photo-fill"><img src="${imgSrc(d.photo2)}"></div>` : ''}</div>` : ''}`
+  },
+
+  textphoto: {
+    label:'テキスト＋写真（フリー）',
+    defaults:()=>({ eyebrow:'MESSAGE', title:'タイトル', body:'本文を入力してください。', photo:'', showNext:false }),
+    fields:[ ta('body','本文',8), img('photo','写真（下部に配置）') ],
+    render:d=>`
+      <div class="body-text">${fmt(d.body)}</div>
+      ${d.photo ? `<div class="photo-fill"><img src="${imgSrc(d.photo)}"></div>` : ''}`
+  },
+
+  menu: {
+    label:'メニュー・料金一覧',
+    defaults:()=>({ eyebrow:'MENU', title:'メニュー・料金', items:[{name:'メニュー名',price:'¥0,000',note:''}], footnote:'※価格は全て税込です。', showNext:false }),
+    fields:[ tbl('items','メニュー',[{k:'name',l:'メニュー名',kind:'text'},{k:'price',l:'価格',kind:'text'},{k:'note',l:'補足（任意）',kind:'text'}],'＋ メニューを追加'), ta('footnote','注記（下部・小さめ）',3) ],
+    render:d=>`
+      <div class="menu-list">
+        ${(d.items||[]).map(i=>`
+          <div class="menu-row">
+            <div class="mi"><div class="mn">${fmt(i.name)}</div>${i.note ? `<div class="mnote">${fmt(i.note)}</div>` : ''}</div>
+            <div class="mp">${esc(i.price)}</div>
+          </div>`).join('')}
+      </div>
+      ${d.footnote ? `<div class="small-note">${fmt(d.footnote)}</div>` : ''}`
+  },
+
+  menudetail: {
+    label:'メニュー詳細（価格・初回オフ）',
+    defaults:()=>({ eyebrow:'キャッチコピーを入力', title:'メニュー名（○○分）', lead:'メニューの説明文を入力してください。', boxTitle:'メニュー名 ○○分', boxSub:'（内容の補足）', priceOld:'', priceBadge:'初回', priceNew:'0,000円（税込）', priceNote:'', photo:'', showNext:false }),
+    fields:[ ta('lead','リード文（中央寄せ）',5), t('boxTitle','ボックス内メニュー名'), t('boxSub','ボックス内サブ（任意）'), t('priceOld','通常価格（打ち消し線。任意）'), t('priceBadge','バッジ文言（例：初回。空欄で非表示）'), t('priceNew','価格（大きく表示）'), ta('priceNote','価格の注記（任意）',2), img('photo','写真（下部）') ],
+    render:d=>`
+      ${d.lead ? `<div class="lead">${fmt(d.lead)}</div>` : ''}
+      <div class="md-box">
+        <div class="md-box-t">${fmt(d.boxTitle)}</div>
+        ${d.boxSub ? `<div class="md-box-s">${fmt(d.boxSub)}</div>` : ''}
+      </div>
+      ${(d.priceOld || d.priceNew) ? `
+      <div class="md-price">
+        ${d.priceOld ? `<span class="md-was"><span class="md-old">${esc(d.priceOld)}</span><span class="md-arrow">›</span></span>` : ''}
+        ${(d.priceBadge || d.priceNew) ? `<span class="md-now">
+          ${d.priceBadge ? `<span class="md-badge">${esc(d.priceBadge)}</span>` : ''}
+          ${d.priceNew ? `<span class="md-new">${esc(d.priceNew)}</span>` : ''}
+        </span>` : ''}
+      </div>` : ''}
+      ${d.priceNote ? `<div class="small-note" style="text-align:center;">${fmt(d.priceNote)}</div>` : ''}
+      ${d.photo ? `<div class="photo-fill"><img src="${imgSrc(d.photo)}"></div>` : ''}`
+  },
+
+  recommend: {
+    label:'こんな方におすすめ（・リスト）',
+    defaults:()=>({ eyebrow:'RECOMMEND', title:'タイトル', sub:'こんな方におすすめ', items:[{text:'==お悩みキーワード==を含めて入力'},{text:'項目 2'},{text:'項目 3'}], photo:'', showNext:false }),
+    fields:[ t('sub','アクセント見出し（中央・任意）'), tbl('items','項目',[{k:'text',l:'項目',kind:'text'}],'＋ 項目を追加'), img('photo','写真（下部）') ],
+    render:d=>`
+      ${d.sub ? `<div class="rec-sub">${fmt(d.sub)}</div>` : ''}
+      <div class="rec-list">
+        ${(d.items||[]).map(i=>`<div class="rec-item"><span class="mark">・</span><span>${fmt(i.text)}</span></div>`).join('')}
+      </div>
+      ${d.photo ? `<div class="photo-fill"><img src="${imgSrc(d.photo)}"></div>` : ''}`
+  },
+
+  qa: {
+    label:'Q&A・よくある質問',
+    defaults:()=>({ eyebrow:'Q & A', title:'よくあるご質問', items:[{q:'質問を入力',a:'回答を入力'}], showNext:false }),
+    fields:[ tbl('items','Q&A（1ページ 2〜3個が目安）',[{k:'q',l:'質問',kind:'text'},{k:'a',l:'回答',kind:'ta'}],'＋ Q&Aを追加') ],
+    render:d=>`
+      <div class="qa-list">
+        ${(d.items||[]).map(i=>`
+          <div class="qa">
+            <div class="q"><span class="qm">Q.</span><div>${fmt(i.q)}</div></div>
+            <div class="a"><span class="am">A.</span><div>${fmt(i.a)}</div></div>
+          </div>`).join('')}
+      </div>`
+  },
+
+  access: {
+    label:'サロン情報・アクセス',
+    defaults:()=>({ eyebrow:'ACCESS', title:'サロン情報', photo:'', address:'', station:'', hours:'', closed:'', tel:'', parking:'', insta:'', showNext:false }),
+    fields:[ img('photo','写真（上部・任意）'), t('address','住所'), t('station','アクセス（最寄り駅など）'), t('hours','営業時間'), t('closed','定休日'), t('tel','電話番号'), t('parking','駐車場'), t('insta','Instagram') ],
+    render:d=>{
+      const rows = [ ['住所',d.address],['アクセス',d.station],['営業時間',d.hours],['定休日',d.closed],['TEL',d.tel],['駐車場',d.parking],['Instagram',d.insta] ]
+        .filter(r=>r[1]);
+      return `
+        ${d.photo ? `<div class="photo-fill" style="flex:0 0 460px;"><img src="${imgSrc(d.photo)}"></div>` : ''}
+        <div class="info-list">
+          ${rows.map(r=>`<div class="info-row"><div class="il">${esc(r[0])}</div><div class="iv">${fmt(r[1])}</div></div>`).join('')}
+        </div>`;
+    }
+  },
+
+  reserve: {
+    label:'ご予約方法（ステップ）',
+    defaults:()=>({ eyebrow:'RESERVE', title:'ご予約方法', items:[{t:'ステップ 1',d:'説明'},{t:'ステップ 2',d:'説明'},{t:'ステップ 3',d:'説明'}], footnote:'', showNext:false }),
+    fields:[ tbl('items','ステップ',[{k:'t',l:'ステップ名',kind:'text'},{k:'d',l:'説明',kind:'ta'}],'＋ ステップを追加'), ta('footnote','注記（下部・任意）',2) ],
+    render:d=>`
+      <div class="step-list">
+        ${(d.items||[]).map((s,i)=>`
+          <div class="step">
+            <div class="sn">${String(i+1).padStart(2,'0')}</div>
+            <div class="sc"><div class="st">${fmt(s.t)}</div>${s.d ? `<div class="sd">${fmt(s.d)}</div>` : ''}</div>
+          </div>`).join('')}
+      </div>
+      ${d.footnote ? `<div class="small-note">${fmt(d.footnote)}</div>` : ''}`
+  },
+
+  reservelist: {
+    label:'ご予約方法（番号リスト）',
+    defaults:()=>({ eyebrow:'RESERVATION', title:'ご予約方法', intro:'以下の方法でご予約いただけます', items:[{text:'予約方法 1', btn:''},{text:'予約方法 2', btn:''}], note:'お問い合わせ・ご相談だけでも\nお気軽にどうぞ！', showNext:false }),
+    fields:[ t('intro','リード文（中央寄せ）'), tbl('items','予約方法',[{k:'text',l:'方法（下線つきで表示）',kind:'text'},{k:'btn',l:'ボタン文言（任意。入れるとこの項目の下にボタン表示）',kind:'text'}],'＋ 方法を追加'), ta('note','締めのひとこと（中央寄せ・任意）',3) ],
+    render:d=>`
+      ${d.intro ? `<div class="lead">${fmt(d.intro)}</div>` : ''}
+      <div class="rsv-list">
+        ${(d.items||[]).map((it,i)=>`
+          <div class="rsv-item"><span class="rsv-num">${i+1}.</span><span class="rsv-tx">${fmt(it.text)}</span></div>
+          ${it.btn ? `<div class="rsv-btn">${fmt(it.btn)}</div>` : ''}`).join('')}
+      </div>
+      ${d.note ? `<div class="lead">${fmt(d.note)}</div>` : ''}`
+  },
+
+  voice: {
+    label:'お客様の声（★レビュー）',
+    defaults:()=>({ eyebrow:'VOICE', title:'お客様の声', items:[{stars:'★★★★★', meta:'', text:'お客様の声を入力してください。'}], showNext:false }),
+    fields:[ tbl('items','レビュー（1ページ 1〜2件が目安）',[{k:'stars',l:'星（例：★★★★★）',kind:'text'},{k:'meta',l:'補足（例：1か月前・30代女性など）',kind:'text'},{k:'text',l:'本文',kind:'ta'}],'＋ レビューを追加') ],
+    render:d=>`
+      <div class="voice-list">
+        ${(d.items||[]).map(v=>`
+          <div class="voice">
+            <div class="v-head"><span class="v-stars">${esc(v.stars)}</span>${v.meta ? `<span class="v-meta">${esc(v.meta)}</span>` : ''}</div>
+            <div class="v-body">${fmt(v.text)}</div>
+          </div>`).join('')}
+      </div>`
+  },
+
+  history: {
+    label:'実績・経歴（年表）',
+    defaults:()=>({ eyebrow:'CAREER', title:'実績', items:[{y:'20XX年',t:'できごとを入力'},{y:'20XX年',t:'できごとを入力'}], photo:'', showNext:false }),
+    fields:[ tbl('items','年表',[{k:'y',l:'年',kind:'text'},{k:'t',l:'内容',kind:'ta'}],'＋ 年を追加'), img('photo','写真（下部・任意）') ],
+    render:d=>`
+      <div class="hist-list">
+        ${(d.items||[]).map(i=>`
+          <div class="hist"><div class="hy">${fmt(i.y)}</div><div class="ht">${fmt(i.t)}</div></div>`).join('')}
+      </div>
+      ${d.photo ? `<div class="photo-fill"><img src="${imgSrc(d.photo)}"></div>` : ''}`
+  },
+
+  staff: {
+    label:'スタッフ紹介',
+    defaults:()=>({ eyebrow:'STAFF', title:'スタッフ紹介', photo:'', name:'お名前', roman:'Your Name', role:'', body:'プロフィール・経歴・お客様へのメッセージなどを入力してください。', showNext:false }),
+    fields:[ img('photo','スタッフ写真'), t('name','名前'), t('roman','ローマ字表記'), t('role','肩書き・資格（任意）'), ta('body','プロフィール・メッセージ',8) ],
+    render:d=>PAGE_TYPES.intro.render(d)
+  },
+
+  campaign: {
+    label:'キャンペーン・お知らせ',
+    defaults:()=>({ eyebrow:'CAMPAIGN', title:'キャンペーン', catch:'期間限定', offer:'キャンペーン内容を\n入力してください', period:'期間：0月0日〜0月0日', notes:'', photo:'', showNext:false }),
+    fields:[ t('catch','キャッチ（上部・小さめ）'), ta('offer','メイン内容（大きく表示）',4), t('period','期間'), ta('notes','注意事項（任意）',3), img('photo','写真（下部・任意）') ],
+    render:d=>`
+      <div class="camp-box">
+        ${d.catch ? `<div class="camp-catch">＼ ${fmt(d.catch)} ／</div>` : ''}
+        <div class="camp-offer">${fmt(d.offer)}</div>
+        ${d.period ? `<div class="camp-period">${fmt(d.period)}</div>` : ''}
+      </div>
+      ${d.notes ? `<div class="small-note">${fmt(d.notes)}</div>` : ''}
+      ${d.photo ? `<div class="photo-fill"><img src="${imgSrc(d.photo)}"></div>` : ''}`
+  },
+};
+
+const COMMON_TOP = [ t('eyebrow','英字ラベル（飾り。スモーキーでは左帯の縦書きになります）'), t('title','ページタイトル') ];
+
+/* ============================================================
+   状態・保存
+============================================================ */
+let store = { projects: [], currentId: null };
+let currentPageId = null;
+let pvTimer = null;
+
+function proj(){ return store.projects.find(p => p.id === store.currentId); }
+function curPage(){ const p = proj(); return p && p.pages.find(pg => pg.id === currentPageId); }
+
+function save(){
+  try{
+    localStorage.setItem(LS_KEY, JSON.stringify(store));
+    updateMeter();
+  }catch(e){
+    alert('保存容量の上限に達しました。写真の枚数を減らすか、使っていないプロジェクトを削除（事前にJSON書き出し）してください。');
+  }
+}
+function load(){
+  try{
+    const raw = localStorage.getItem(LS_KEY);
+    if(raw){ store = JSON.parse(raw); }
+  }catch(e){ console.warn('load failed', e); }
+  if(!store.projects || !store.projects.length){
+    store = { projects: [sampleProject()], currentId: null };
+  }
+  /* v2: スモーキーテーマのサンプルを1回だけ追加 */
+  if(!store._v || store._v < 2){
+    store.projects.push(sampleProjectSmoky());
+    store._v = 2;
+  }
+  /* v3: NEXT→ボタンを標準ナシに変更（既存ページも一括オフ。必要ならページごとに再オン可） */
+  if(store._v < 3){
+    store.projects.forEach(p => p.pages.forEach(pg => pg.data.showNext = false));
+    store._v = 3;
+  }
+  /* v4: ベージュテーマのサンプルを1回だけ追加 */
+  if(store._v < 4){
+    store.projects.push(sampleProjectBeige());
+    store._v = 4;
+  }
+  /* v5: 表紙ページタイプ廃止。既存の表紙ページと未知タイプを取り除く */
+  store.projects.forEach(p => p.pages = p.pages.filter(pg => PAGE_TYPES[pg.type]));
+  if(store._v < 5) store._v = 5;
+  if(!store.projects.find(p=>p.id===store.currentId)) store.currentId = store.projects[0].id;
+  const p = proj();
+  currentPageId = p.pages.length ? p.pages[0].id : null;
+}
+function updateMeter(){
+  const mb = (JSON.stringify(store).length / 1024 / 1024);
+  let imgB = 0; imgCache.forEach(v => imgB += (v ? v.length : 0));
+  const el = document.getElementById('storageMeter');
+  el.textContent = `テキスト ${mb.toFixed(2)}MB／写真 ${(imgB/1024/1024).toFixed(1)}MB`;
+  el.style.color = mb > 4 ? '#c0392b' : '';
+}
+
+function newPage(type){
+  return { id: uid(), type, data: PAGE_TYPES[type].defaults() };
+}
+
+function starterPages(){
+  return ['intro','points','checklist','menu','qa','reserve','access'].map(newPage);
+}
+
+function sampleProject(){
+  const p = { id: uid(), name: 'サンプル：フットケアサロン', theme: 'elegant', pages: [] };
+  const mk = (type, data) => { const pg = newPage(type); Object.assign(pg.data, data); return pg; };
+  p.pages = [
+    mk('intro', {
+      eyebrow:'FOR VISITOR', title:'初めての方へ', name:'宇佐美 あやこ', roman:'Ayako Usami',
+      body:'千葉県流山市の\nフットケアサロン「ティアッド」です。\n\n当サロンは\n巻き爪やタコ、魚の目などの\n**足のトラブルを専門にケア**し\nお客様が快適に歩けるように\nサポートいたします。\n\n**痛みに配慮した施術**と\n丁寧なケアを大切にしています。'
+    }),
+    mk('points', {
+      eyebrow:'CONCEPT', title:'当店のこだわり',
+      items:[{text:'==痛みに配慮した==巻き爪ケア'},{text:'==見た目も綺麗な==仕上がり'},{text:'==爪全体を整える==丁寧な施術'}],
+      body:'巻き爪は、他の爪や足全体に\n負担がかかっている場合もあるため、\n**当店では全ての爪を整えながら\nケアを行っています。**'
+    }),
+    mk('checklist', {
+      eyebrow:'CHOOSE', title:'こんな方に選ばれています',
+      items:[{text:'**巻き爪**でお悩みの方'},{text:'**タコや魚の目**でお悩みの方'},{text:'人前で**足を出すのが恥ずかしい**方'}],
+      caption:'こういった方に選ばれています。'
+    }),
+    mk('textphoto', {
+      eyebrow:'WORRY', title:'巻き爪で悩んでいる方へ',
+      body:'巻き爪は痛みを伴うだけでなく\n**放置すると炎症や歩行トラブル**に\nつながることもございます。\n\n当店は、巻き爪でお悩みの方へ\n健康で美しい足元を取り戻す\nお手伝いをいたします。'
+    }),
+    mk('menu', {
+      eyebrow:'MENU', title:'メニュー・料金',
+      items:[
+        {name:'巻き爪ケア（1趾）', price:'¥6,600', note:''},
+        {name:'巻き爪ケア（2趾目以降）', price:'¥3,300', note:'1趾あたり'},
+        {name:'角質ケア（タコ・魚の目）', price:'¥5,500', note:''},
+        {name:'フットケアコース', price:'¥11,000', note:'巻き爪ケア＋角質ケア'},
+      ],
+      footnote:'※価格は全て税込です。\n※症状により追加料金をいただく場合がございます。'
+    }),
+    mk('qa', {
+      eyebrow:'Q & A', title:'よくあるご質問',
+      items:[
+        {q:'施術は痛くないですか？', a:'痛みに配慮した施術を心がけております。ご不安な点は遠慮なくお申し付けください。'},
+        {q:'1回で良くなりますか？', a:'症状により異なりますが、状態に合わせて複数回のケアをご提案する場合がございます。'},
+        {q:'男性でも利用できますか？', a:'はい、男性のお客様にも多くご来店いただいております。'},
+      ]
+    }),
+    mk('reserve', {
+      eyebrow:'RESERVE', title:'ご予約方法',
+      items:[
+        {t:'InstagramのDMからご連絡', d:'プロフィールのDMボタンから\nお気軽にメッセージください'},
+        {t:'ご希望日時をお知らせ', d:'第2希望までいただけると\nスムーズにご案内できます'},
+        {t:'ご予約確定', d:'当日はお気をつけて\nお越しくださいませ'},
+      ]
+    }),
+    mk('access', {
+      eyebrow:'ACCESS', title:'サロン情報',
+      address:'千葉県流山市◯◯ 1-2-3', station:'「流山おおたかの森駅」より徒歩5分',
+      hours:'10:00〜18:00（最終受付 17:00）', closed:'不定休', parking:'近隣にコインパーキングあり',
+      insta:'@salon_account', showNext:false
+    }),
+  ];
+  return p;
+}
+
+function sampleProjectSmoky(){
+  const p = { id: uid(), name: 'サンプル：ボディメイクスクール', theme: 'smoky', pages: [] };
+  const mk = (type, data) => { const pg = newPage(type); Object.assign(pg.data, data); return pg; };
+  p.pages = [
+    mk('intro', {
+      eyebrow:'美ボディメイク体質改善サロン salon Lu-Na', title:'初めての方へ',
+      name:'常盤 真衣', roman:'Mai Tokiwa', role:'セラピストスクール講師',
+      body:'こんにちは\nセラピストスクール講師の\n常盤真衣（ときわまい）です。\n\nトリートメントや\n痩身技術を提供していても、\n\n「なかなか結果に繋がらない」\n「リピート率が上がらない」\n\nという方のために、\n**確実に成果の出せる手技や、\n知識**を講座でお伝えしています。'
+    }),
+    mk('checklist', {
+      eyebrow:'For you', title:'こんな方に選ばれています',
+      items:[
+        {text:'**==痩せる・不調の根拠==**が伝えられない'},
+        {text:'施術後の**==効果が見えにくい==**'},
+        {text:'身体の**==仕組みがわからない==**'},
+        {text:'競合と差別化できず、**==集客できない==**'},
+        {text:'短時間で効率よく**==技術を向上==**させたい'},
+        {text:'リンパのみの施術に**==限界を感じる==**'},
+        {text:'**==技術・知識の幅を広げたい==**'},
+      ],
+      caption:''
+    }),
+    mk('history', {
+      eyebrow:'Career', title:'実績',
+      items:[
+        {y:'2011年', t:'リンパセラピストの資格取得し\nサロン勤務開始'},
+        {y:'2012年', t:'リンパセラピストインストラクター取得し、\n講師業スタート'},
+        {y:'2015年', t:'サロンルーナ開業'},
+        {y:'2022年', t:'独自のメソッドを体系化し、スクール開講'},
+      ]
+    }),
+    mk('textphoto', {
+      eyebrow:'Career', title:'実績',
+      body:'骨格、運動学、解剖学に基づく\n施術と栄養管理で\n\n**身体の内側と外側の両面から、\nボディメイク**を行っています。'
+    }),
+  ];
+  return p;
+}
+
+function sampleProjectBeige(){
+  const p = { id: uid(), name: 'サンプル：リラクゼーションサロン', theme: 'beige', pages: [] };
+  const mk = (type, data) => { const pg = newPage(type); Object.assign(pg.data, data); return pg; };
+  p.pages = [
+    mk('menudetail', {
+      eyebrow:'脳までとろける、究極の全身リセット', title:'深層オイルリンパ（120分）',
+      lead:'溜まった疲れを解放し、\n明日からまた頑張れる自分にリセット\n\nお一人おひとりにあわせた全身のケアで\n心まで解き放たれる深い充足感を',
+      boxTitle:'深層オイルリンパ 120分', boxSub:'（全身＋ドライヘッドスパ）',
+      priceOld:'16,500円（税込）', priceBadge:'初回', priceNew:'14,500円（税込）'
+    }),
+    mk('recommend', {
+      eyebrow:'脳までとろける、究極の全身リセット', title:'深層オイルリンパ（120分）',
+      sub:'こんな方におすすめ',
+      items:[
+        {text:'==極上の癒し==を求める方'},
+        {text:'寝ても==疲れが取れない==方'},
+        {text:'==慢性的に疲れ==を感じている方'},
+        {text:'==慢性的なコリ==を感じている方'},
+        {text:'更年期で==体調が安定しない==方'},
+        {text:'==睡眠の質==を上げたい方'},
+      ]
+    }),
+    mk('reservelist', {
+      eyebrow:'RESERVATION', title:'ご予約方法',
+      intro:'以下の方法でご予約いただけます',
+      items:[
+        {text:'Hot Pepper Beauty', btn:''},
+        {text:'公式LINE', btn:'リットリンクのURL'},
+        {text:'DMへ「予約」と一言', btn:''},
+      ],
+      note:'お問い合わせ・ご相談だけでも\nお気軽にどうぞ！'
+    }),
+    mk('qa', {
+      eyebrow:'Q & A', title:'よくあるご質問',
+      items:[
+        {q:'初めて利用します。どのメニューを選べばいいですか？', a:'メニュー選びにご不明な点がございましたら、事前に公式LINEまたはDMよりご相談ください。\nお悩みやご要望に合わせて、最適なコースをご提案いたします。'},
+      ]
+    }),
+    mk('voice', {
+      eyebrow:'VOICE', title:'お客様の声',
+      items:[
+        {stars:'★★★★★', meta:'1か月前', text:'首肩凝りが気になっていたので、オイルリンパマッサージをして頂きました。\nとても素敵なサロンで、気持ちの良い施術にいつの間にかぐっすり眠ってしまいました。施術の強さもちょうど良くて、アロマの香りで==落ち着き、スッキリ==しました。\nスタッフさんも優しくて、==心も身体も癒されて==とてもいい時間を過ごすことができました。\nまた是非お願いしたいです。ありがとうございました。'},
+      ]
+    }),
+  ];
+  return p;
+}
+
+/* ============================================================
+   紙面レンダリング
+============================================================ */
+/* 縦書き風テキスト（1文字ずつ縦に積む。html2canvasのwriting-mode非対応を回避） */
+const vertText = s => String(s ?? '').split('')
+  .map(c => c === ' ' ? '<span class="bt-gap"></span>' : esc(c)).join('<br>');
+
+function sheetHTML(page, theme){
+  const T = PAGE_TYPES[page.type];
+  const d = page.data;
+  const colorStyle = paletteStyleAttr(theme);
+  if(THEMES[theme] && THEMES[theme].card){
+    return `
+  <div class="sheet theme-${theme} layout-card" style="${colorStyle}">
+    <div class="card-page">
+      <div class="card-band">${d.eyebrow ? `<div class="band-text">${vertText(d.eyebrow)}</div>` : ''}</div>
+      <div class="card-main">
+        ${T.noHeader ? '' : `
+        <div class="card-head">
+          <div class="card-notch"></div>
+          <div class="card-title">${fmt(d.title)}</div>
+        </div>`}
+        <div class="sheet-body ${T.bodyClass||''}">${T.render(d)}</div>
+      </div>
+      ${d.showNext ? '<div class="next">NEXT→</div>' : ''}
+    </div>
+  </div>`;
+  }
+  return `
+  <div class="sheet theme-${theme}" style="${colorStyle}">
+    ${T.noHeader ? '' : `
+    <div class="sheet-header">
+      <div class="eyebrow${hasJP(d.eyebrow) ? ' jp' : ''}">${esc(d.eyebrow)}</div>
+      <div class="sheet-title">${fmt(d.title)}</div>
+    </div>`}
+    <div class="sheet-body ${T.bodyClass||''}">${T.render(d)}</div>
+    ${d.showNext ? '<div class="next">NEXT→</div>' : ''}
+  </div>`;
+}
+
+/* ============================================================
+   描画：全体
+============================================================ */
+function renderAll(){
+  renderProjectSelect();
+  renderThemeGrid();
+  renderPageList();
+  renderEditor();
+  renderPreview();
+  updateMeter();
+}
+
+function renderProjectSelect(){
+  const sel = document.getElementById('projectSelect');
+  sel.innerHTML = store.projects.map(p =>
+    `<option value="${p.id}" ${p.id===store.currentId?'selected':''}>${esc(p.name)}</option>`).join('');
+}
+
+function renderThemeGrid(){
+  const p = proj();
+  document.getElementById('themeGrid').innerHTML = Object.entries(THEMES).map(([key,th])=>`
+    <button class="theme-btn ${p.theme===key?'active':''}" data-theme="${key}">
+      <span class="theme-dots">${th.dots.map(c=>`<span style="background:${c}"></span>`).join('')}</span>
+      <span>${th.label}<br><small style="color:var(--ui-sub);font-weight:400">${th.desc}</small></span>
+    </button>`).join('');
+  document.querySelectorAll('.theme-btn').forEach(b=>{
+    b.onclick = ()=>{
+      const pr = proj();
+      pr.theme = b.dataset.theme;
+      /* 新テーマに同じidの色がなければ標準色に戻す */
+      if(!(VARIANTS[pr.theme]||[]).some(v=>v.id===(pr.color||'default'))) pr.color = 'default';
+      save(); renderAll();
+    };
+  });
+  renderColorRow();
+}
+
+function renderColorRow(){
+  const p = proj();
+  const row = document.getElementById('colorRow');
+  const cur = p.color || 'default';
+  row.innerHTML = (VARIANTS[p.theme]||[]).map(v=>
+    `<button class="color-sw ${cur===v.id?'active':''}" data-cid="${v.id}" title="${v.label}"
+       style="background:${v.hex || THEMES[p.theme].dots[1]}"></button>`).join('');
+  row.querySelectorAll('[data-cid]').forEach(b=>{
+    b.onclick = ()=>{ p.color = b.dataset.cid; save(); renderColorRow(); renderPreview(); };
+  });
+}
+
+function renderPageList(){
+  const p = proj();
+  const list = document.getElementById('pageList');
+  list.innerHTML = p.pages.map((pg,i)=>{
+    const T = PAGE_TYPES[pg.type];
+    const title = pg.data.title || T.label;
+    return `
+    <div class="pl-item ${pg.id===currentPageId?'active':''}" data-id="${pg.id}">
+      <span class="pl-num">${i+1}</span>
+      <span class="pl-title">${esc(title)}<span class="pl-type">${esc(T.label)}</span></span>
+      <span class="pl-ops">
+        <button data-op="up" title="上へ">↑</button>
+        <button data-op="down" title="下へ">↓</button>
+        <button data-op="dup" title="複製">⧉</button>
+        <button data-op="del" title="削除">✕</button>
+      </span>
+    </div>`;
+  }).join('');
+
+  list.querySelectorAll('.pl-item').forEach(item=>{
+    const id = item.dataset.id;
+    item.onclick = e=>{
+      const op = e.target.dataset && e.target.dataset.op;
+      const idx = p.pages.findIndex(x=>x.id===id);
+      if(op==='up'   && idx>0){ [p.pages[idx-1],p.pages[idx]]=[p.pages[idx],p.pages[idx-1]]; }
+      else if(op==='down' && idx<p.pages.length-1){ [p.pages[idx+1],p.pages[idx]]=[p.pages[idx],p.pages[idx+1]]; }
+      else if(op==='dup'){ const c = JSON.parse(JSON.stringify(p.pages[idx])); c.id=uid(); p.pages.splice(idx+1,0,c); currentPageId=c.id; }
+      else if(op==='del'){
+        if(!confirm('このページを削除しますか？')) return;
+        p.pages.splice(idx,1);
+        if(currentPageId===id) currentPageId = (p.pages[idx]||p.pages[idx-1]||{}).id || null;
+      }
+      else { currentPageId = id; }
+      save(); renderPageList(); renderEditor(); renderPreview();
+    };
+  });
+
+  const typeSel = document.getElementById('addPageType');
+  typeSel.innerHTML = Object.entries(PAGE_TYPES).map(([k,T])=>`<option value="${k}">${T.label}</option>`).join('');
+}
+
+/* ============================================================
+   描画：エディタ
+============================================================ */
+function renderEditor(){
+  const ed = document.getElementById('editor');
+  const pg = curPage();
+  if(!pg){ ed.innerHTML = '<div class="ed-empty">左の「追加」ボタンから<br>ページを追加してください</div>'; return; }
+  const T = PAGE_TYPES[pg.type];
+  const fields = [...COMMON_TOP, ...T.fields];
+
+  let html = `
+    <div class="ed-head">
+      <div class="ed-type">${esc(T.label)}</div>
+      <h2>ページ内容の編集</h2>
+    </div>
+    <div class="fmt-help">✍️ 文字装飾：<code>**金色の強調**</code>　<code>==マーカー==</code>　改行はそのまま反映されます</div>`;
+
+  for(const f of fields){
+    const v = pg.data[f.k];
+    if(f.kind==='text'){
+      html += `<div class="field"><label>${esc(f.l)}</label><input type="text" data-k="${f.k}" value="${esc(v)}"></div>`;
+    }else if(f.kind==='ta'){
+      html += `<div class="field"><label>${esc(f.l)}</label><textarea data-k="${f.k}" rows="${f.rows}">${esc(v)}</textarea></div>`;
+    }else if(f.kind==='img'){
+      html += `
+      <div class="field"><label>${esc(f.l)}</label>
+        <div class="img-field" data-imgk="${f.k}">
+          ${v ? `<img class="img-thumb" src="${imgSrc(v)}">` : `<div class="img-empty">なし</div>`}
+          <div class="img-btns">
+            <button data-imgop="set">画像を選択</button>
+            ${v ? `<button data-imgop="clear">削除</button>` : ''}
+          </div>
+        </div>
+      </div>`;
+    }else if(f.kind==='tbl'){
+      const rows = v || [];
+      html += `<div class="field" data-tblk="${f.k}"><label>${esc(f.l)}</label><div class="rows-wrap">`;
+      rows.forEach((row,ri)=>{
+        html += `<div class="row-card" data-ri="${ri}">
+          <button class="row-del" data-tblop="del" title="この行を削除">✕</button>`;
+        for(const c of f.cols){
+          const cv = row[c.k] ?? '';
+          html += `<div class="rc-field"><label>${esc(c.l)}</label>` +
+            (c.kind==='ta'
+              ? `<textarea data-ck="${c.k}" rows="2">${esc(cv)}</textarea>`
+              : `<input type="text" data-ck="${c.k}" value="${esc(cv)}">`) +
+            `</div>`;
+        }
+        html += `</div>`;
+      });
+      html += `<button class="row-add" data-tblop="add">${esc(f.addLabel||'＋ 行を追加')}</button></div></div>`;
+    }
+  }
+
+  html += `
+    <div class="chk-field">
+      <input type="checkbox" id="chkNext" ${pg.data.showNext?'checked':''}>
+      <label for="chkNext">「NEXT→」ボタンを表示（標準はナシ。必要な場合のみオン）</label>
+    </div>`;
+
+  ed.innerHTML = html;
+
+  // --- テキスト系バインド
+  ed.querySelectorAll('input[type=text][data-k], textarea[data-k]').forEach(el=>{
+    el.oninput = ()=>{ pg.data[el.dataset.k] = el.value; queueSaveAndPreview(); if(el.dataset.k==='title') renderPageListSoon(); };
+  });
+  // --- NEXT
+  ed.querySelector('#chkNext').onchange = e=>{ pg.data.showNext = e.target.checked; save(); renderPreview(); };
+  // --- 画像
+  ed.querySelectorAll('.img-field').forEach(wrap=>{
+    const k = wrap.dataset.imgk;
+    wrap.querySelectorAll('button').forEach(b=>{
+      b.onclick = ()=>{
+        if(b.dataset.imgop==='clear'){ pg.data[k]=''; save(); renderEditor(); renderPreview(); return; }
+        pickImage(dataUrl=>{ pg.data[k]=dataUrl; save(); renderEditor(); renderPreview(); });
+      };
+    });
+  });
+  // --- 行リスト
+  ed.querySelectorAll('[data-tblk]').forEach(wrap=>{
+    const k = wrap.dataset.tblk;
+    const fdef = fields.find(f=>f.k===k);
+    wrap.querySelectorAll('.row-card').forEach(card=>{
+      const ri = +card.dataset.ri;
+      card.querySelectorAll('[data-ck]').forEach(inp=>{
+        inp.oninput = ()=>{ pg.data[k][ri][inp.dataset.ck] = inp.value; queueSaveAndPreview(); };
+      });
+      card.querySelector('[data-tblop=del]').onclick = ()=>{
+        pg.data[k].splice(ri,1); save(); renderEditor(); renderPreview();
+      };
+    });
+    wrap.querySelector('[data-tblop=add]').onclick = ()=>{
+      const empty = {}; fdef.cols.forEach(c=>empty[c.k]='');
+      (pg.data[k] = pg.data[k]||[]).push(empty);
+      save(); renderEditor(); renderPreview();
+    };
+  });
+}
+
+let plTimer=null;
+function renderPageListSoon(){ clearTimeout(plTimer); plTimer=setTimeout(renderPageList, 400); }
+let svTimer=null;
+function queueSaveAndPreview(){
+  clearTimeout(svTimer); svTimer=setTimeout(save, 500);
+  clearTimeout(pvTimer); pvTimer=setTimeout(renderPreview, 180);
+}
+
+/* ============================================================
+   画像選択（縮小してdataURL化）
+============================================================ */
+function pickImage(cb){
+  const inp = document.getElementById('imgFileInput');
+  inp.onchange = ()=>{
+    const file = inp.files[0]; inp.value='';
+    if(!file) return;
+    const fr = new FileReader();
+    fr.onload = ()=>{
+      const im = new Image();
+      im.onload = async ()=>{
+        const MAX = 1400;
+        let w=im.width, h=im.height;
+        if(Math.max(w,h)>MAX){ const r=MAX/Math.max(w,h); w=Math.round(w*r); h=Math.round(h*r); }
+        const cv=document.createElement('canvas'); cv.width=w; cv.height=h;
+        cv.getContext('2d').drawImage(im,0,0,w,h);
+        try{
+          cb(await storeImage(cv.toDataURL('image/jpeg',0.82)));
+        }catch(e){ alert('画像の保存に失敗しました: '+e.message); }
+      };
+      im.src = fr.result;
+    };
+    fr.readAsDataURL(file);
+  };
+  inp.click();
+}
+
+/* ============================================================
+   プレビュー
+============================================================ */
+function renderPreview(){
+  const p = proj();
+  const wrap = document.getElementById('pvScale');
+  const pos = document.getElementById('pvPos');
+  const pg = curPage();
+  if(!pg){ wrap.innerHTML=''; pos.textContent='- / -'; return; }
+  wrap.innerHTML = sheetHTML(pg, p.theme);
+  const idx = p.pages.findIndex(x=>x.id===pg.id);
+  pos.textContent = `${idx+1} / ${p.pages.length}`;
+  fitPreview();
+}
+function fitPreview(){
+  const scroll = document.getElementById('pvScroll');
+  const wrap = document.getElementById('pvScale');
+  if(!wrap.firstElementChild) return;
+  const scale = Math.min((scroll.clientWidth - 48) / 1080, 0.5);
+  wrap.style.transform = `scale(${scale})`;
+  wrap.style.width = '1080px';
+  wrap.style.height = (1920 * scale) / scale + 'px'; /* 実サイズ */
+  wrap.parentElement.style.height = '';
+  /* scaleで縮んだ分、スクロール領域を実表示サイズに合わせる */
+  wrap.style.marginBottom = -(1920 * (1 - scale)) + 'px';
+  wrap.style.marginRight = -(1080 * (1 - scale)) + 'px';
+}
+window.addEventListener('resize', fitPreview);
+
+function movePage(delta){
+  const p = proj();
+  const idx = p.pages.findIndex(x=>x.id===currentPageId);
+  const n = idx + delta;
+  if(n<0 || n>=p.pages.length) return;
+  currentPageId = p.pages[n].id;
+  renderPageList(); renderEditor(); renderPreview();
+}
+
+/* ============================================================
+   書き出し（JPEG / PDF）
+============================================================ */
+function busy(show, msg, sub){
+  const b = document.getElementById('busy');
+  b.classList.toggle('show', !!show);
+  if(msg) document.getElementById('busyMsg').textContent = msg;
+  document.getElementById('busySub').textContent = sub||'';
+}
+
+async function renderToCanvas(page){
+  const p = proj();
+  const stage = document.getElementById('exportStage');
+  stage.innerHTML = sheetHTML(page, p.theme);
+  await document.fonts.ready;
+  const imgs = [...stage.querySelectorAll('img')];
+  await Promise.all(imgs.map(i => i.decode().catch(()=>{})));
+  await new Promise(r=>setTimeout(r,60));
+  const canvas = await html2canvas(stage.firstElementChild, { scale:1, backgroundColor:'#ffffff', logging:false });
+  stage.innerHTML = '';
+  return canvas;
+}
+
+function download(url, name){
+  const a = document.createElement('a');
+  a.href = url; a.download = name;
+  document.body.appendChild(a); a.click(); a.remove();
+}
+
+function pageFileName(p, pg, i){
+  const T = PAGE_TYPES[pg.type];
+  return `${safeName(p.name)}_${String(i+1).padStart(2,'0')}_${safeName(pg.data.title||T.label)}`;
+}
+
+async function exportJpegOne(){
+  const pg = curPage(); if(!pg) return;
+  const p = proj();
+  const idx = p.pages.findIndex(x=>x.id===pg.id);
+  busy(true,'JPEGを書き出し中…');
+  try{
+    const cv = await renderToCanvas(pg);
+    download(cv.toDataURL('image/jpeg',0.92), pageFileName(p,pg,idx)+'.jpg');
+  }catch(e){ alert('書き出しに失敗しました: '+e.message); }
+  busy(false);
+}
+
+async function exportJpegAll(){
+  const p = proj(); if(!p.pages.length) return;
+  busy(true,'JPEGを一括書き出し中…');
+  try{
+    for(let i=0;i<p.pages.length;i++){
+      busy(true,'JPEGを一括書き出し中…', `${i+1} / ${p.pages.length} ページ`);
+      const cv = await renderToCanvas(p.pages[i]);
+      download(cv.toDataURL('image/jpeg',0.92), pageFileName(p,p.pages[i],i)+'.jpg');
+      await new Promise(r=>setTimeout(r,350));
+    }
+  }catch(e){ alert('書き出しに失敗しました: '+e.message); }
+  busy(false);
+}
+
+async function exportPdf(){
+  const p = proj(); if(!p.pages.length) return;
+  busy(true,'PDFを作成中…');
+  try{
+    const pdf = new jspdf.jsPDF({ orientation:'portrait', unit:'px', format:[1080,1920], hotfixes:['px_scaling'] });
+    for(let i=0;i<p.pages.length;i++){
+      busy(true,'PDFを作成中…', `${i+1} / ${p.pages.length} ページ`);
+      const cv = await renderToCanvas(p.pages[i]);
+      if(i>0) pdf.addPage([1080,1920],'portrait');
+      pdf.addImage(cv.toDataURL('image/jpeg',0.92), 'JPEG', 0, 0, 1080, 1920);
+    }
+    pdf.save(safeName(p.name)+'.pdf');
+  }catch(e){ alert('PDF作成に失敗しました: '+e.message); }
+  busy(false);
+}
+
+/* ============================================================
+   プロジェクト操作 / JSON入出力
+============================================================ */
+function newProject(){
+  const name = prompt('新しいプロジェクト名（サロン名など）を入力してください');
+  if(!name) return;
+  const p = { id: uid(), name, theme:'elegant', pages: starterPages() };
+  store.projects.push(p);
+  store.currentId = p.id;
+  currentPageId = p.pages[0].id;
+  save(); renderAll();
+}
+function renameProject(){
+  const p = proj();
+  const name = prompt('プロジェクト名を変更', p.name);
+  if(!name) return;
+  p.name = name; save(); renderProjectSelect();
+}
+function dupProject(){
+  const p = proj();
+  const c = JSON.parse(JSON.stringify(p));
+  c.id = uid(); c.name = p.name + 'のコピー';
+  c.pages.forEach(pg=>pg.id=uid());
+  store.projects.push(c); store.currentId = c.id;
+  currentPageId = c.pages.length ? c.pages[0].id : null;
+  save(); renderAll();
+}
+function delProject(){
+  const p = proj();
+  if(!confirm(`「${p.name}」を削除しますか？\n（必要ならJSON書き出しでバックアップしてから削除してください）`)) return;
+  store.projects = store.projects.filter(x=>x.id!==p.id);
+  if(!store.projects.length) store.projects.push(sampleProject());
+  store.currentId = store.projects[0].id;
+  currentPageId = store.projects[0].pages[0] ? store.projects[0].pages[0].id : null;
+  save(); renderAll();
+}
+function exportJson(){
+  /* 写真をdataURLに展開して埋め込み、単体で完結するバックアップにする */
+  const p = JSON.parse(JSON.stringify(proj()));
+  p.pages.forEach(pg=>{
+    for(const [k,v] of Object.entries(pg.data)){
+      if(typeof v === 'string' && v.startsWith('idb:')) pg.data[k] = imgSrc(v);
+    }
+  });
+  const blob = new Blob([JSON.stringify(p, null, 2)], {type:'application/json'});
+  download(URL.createObjectURL(blob), safeName(p.name)+'.json');
+}
+function importJson(){
+  const inp = document.getElementById('jsonFileInput');
+  inp.onchange = ()=>{
+    const file = inp.files[0]; inp.value='';
+    if(!file) return;
+    const fr = new FileReader();
+    fr.onload = async ()=>{
+      try{
+        const data = JSON.parse(fr.result);
+        const list = Array.isArray(data.projects) ? data.projects : [data];
+        let added = 0;
+        for(const d of list){
+          if(!d || !Array.isArray(d.pages)) continue;
+          d.id = uid();
+          d.pages = d.pages.filter(pg => pg && PAGE_TYPES[pg.type]);
+          d.pages.forEach(pg=>pg.id=uid());
+          /* 埋め込み画像はIndexedDBへ移す */
+          for(const pg of d.pages){
+            for(const [k,v] of Object.entries(pg.data||{})){
+              if(typeof v === 'string' && v.startsWith('data:image')) pg.data[k] = await storeImage(v);
+            }
+          }
+          if(!THEMES[d.theme]) d.theme='elegant';
+          d.name = d.name || '読み込みプロジェクト';
+          store.projects.push(d); added++;
+          store.currentId = d.id;
+          currentPageId = d.pages[0] ? d.pages[0].id : null;
+        }
+        if(!added){ alert('プロジェクトデータが見つかりませんでした。'); return; }
+        save(); renderAll();
+      }catch(e){ alert('JSONの読み込みに失敗しました: '+e.message); }
+    };
+    fr.readAsText(file);
+  };
+  inp.click();
+}
+
+/* ============================================================
+   イベント・初期化
+============================================================ */
+document.getElementById('projectSelect').onchange = e=>{
+  store.currentId = e.target.value;
+  const p = proj();
+  currentPageId = p.pages.length ? p.pages[0].id : null;
+  save(); renderAll();
+};
+document.getElementById('btnNewProj').onclick = newProject;
+document.getElementById('btnRenameProj').onclick = renameProject;
+document.getElementById('btnDupProj').onclick = dupProject;
+document.getElementById('btnDelProj').onclick = delProject;
+document.getElementById('btnExportJson').onclick = exportJson;
+document.getElementById('btnImportJson').onclick = importJson;
+document.getElementById('addPageBtn').onclick = ()=>{
+  const type = document.getElementById('addPageType').value;
+  const pg = newPage(type);
+  proj().pages.push(pg);
+  currentPageId = pg.id;
+  save(); renderPageList(); renderEditor(); renderPreview();
+};
+document.getElementById('btnJpegOne').onclick = exportJpegOne;
+document.getElementById('btnJpegAll').onclick = exportJpegAll;
+document.getElementById('btnPdfAll').onclick = exportPdf;
+document.getElementById('pvPrev').onclick = ()=>movePage(-1);
+document.getElementById('pvNext').onclick = ()=>movePage(1);
+
+/* ============================================================
+   起動：IndexedDBを開き、既存データの写真を移行してから描画
+============================================================ */
+async function init(){
+  try{
+    idb = await idbOpen();
+    const all = await idbAll();
+    all.forEach((v,k)=>imgCache.set(k,v));
+  }catch(e){
+    console.warn('IndexedDB unavailable', e);
+  }
+  load();
+  if(idb){
+    /* 旧形式（localStorageにdataURL直置き）の写真をIndexedDBへ移行 */
+    let changed = false;
+    for(const p of store.projects){
+      for(const pg of p.pages){
+        for(const [k,v] of Object.entries(pg.data)){
+          if(typeof v === 'string' && v.startsWith('data:image')){
+            try{ pg.data[k] = await storeImage(v); changed = true; }catch(e){}
+          }
+        }
+      }
+    }
+    /* どのページからも参照されていない画像を掃除 */
+    const used = new Set();
+    store.projects.forEach(p=>p.pages.forEach(pg=>{
+      Object.values(pg.data).forEach(v=>{
+        if(typeof v === 'string' && v.startsWith('idb:')) used.add(v.slice(4));
+      });
+    }));
+    for(const k of [...imgCache.keys()]){
+      if(!used.has(k)){ try{ await idbDel(k); }catch(e){} imgCache.delete(k); }
+    }
+    if(changed) save();
+  }
+  renderAll();
+}
+init();
+</script>
+</body>
+</html>
