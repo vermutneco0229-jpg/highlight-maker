@@ -1,0 +1,195 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>ハイライトメーカー 使い方ガイド</title>
+<style>
+:root{
+  --bg:#f2f0ed; --panel:#fff; --border:#e2ddd6; --text:#3d3a36; --sub:#8a847b;
+  --accent:#a5805a; --accent-soft:#f3ebe2;
+}
+*{box-sizing:border-box; margin:0; padding:0;}
+body{
+  font-family:"Hiragino Sans","Noto Sans JP",system-ui,sans-serif;
+  background:var(--bg); color:var(--text); line-height:1.9; font-size:15px;
+}
+.wrap{max-width:860px; margin:0 auto; padding:40px 24px 80px;}
+header.hero{
+  background:var(--panel); border:1px solid var(--border); border-radius:16px;
+  padding:36px 40px; margin-bottom:28px;
+}
+.hero h1{font-size:26px; letter-spacing:.04em;}
+.hero .sub{color:var(--accent); font-size:12px; letter-spacing:.25em; font-weight:600; margin-bottom:8px;}
+.hero p{color:var(--sub); margin-top:10px; font-size:14px;}
+section{
+  background:var(--panel); border:1px solid var(--border); border-radius:16px;
+  padding:32px 40px; margin-bottom:20px;
+}
+h2{
+  font-size:18px; margin-bottom:16px; padding-bottom:12px; border-bottom:2px solid var(--accent-soft);
+  display:flex; align-items:center; gap:10px;
+}
+h2 .num{
+  width:30px; height:30px; border-radius:9px; background:var(--accent); color:#fff;
+  display:inline-flex; align-items:center; justify-content:center; font-size:15px; flex:none;
+}
+h3{font-size:15px; margin:22px 0 8px; color:var(--accent); letter-spacing:.02em;}
+p{margin-bottom:10px;}
+ul,ol{padding-left:24px; margin-bottom:10px;}
+li{margin-bottom:6px;}
+.steps{counter-reset:step; list-style:none; padding-left:0;}
+.steps li{
+  position:relative; padding:14px 16px 14px 58px; background:var(--bg); border-radius:12px;
+  margin-bottom:10px; counter-increment:step;
+}
+.steps li::before{
+  content:counter(step); position:absolute; left:14px; top:50%; transform:translateY(-50%);
+  width:30px; height:30px; border-radius:50%; background:var(--accent); color:#fff;
+  display:flex; align-items:center; justify-content:center; font-weight:700; font-size:14px;
+}
+.steps li b{display:block; margin-bottom:2px;}
+.steps li small{color:var(--sub);}
+table{width:100%; border-collapse:collapse; margin:12px 0; font-size:13.5px;}
+th,td{border:1px solid var(--border); padding:9px 12px; text-align:left; vertical-align:top;}
+th{background:var(--accent-soft); font-weight:600; white-space:nowrap;}
+code,kbd{
+  background:var(--accent-soft); padding:2px 8px; border-radius:6px; font-size:13px;
+  font-family:inherit;
+}
+.tip{
+  background:var(--accent-soft); border-radius:12px; padding:14px 18px; margin:14px 0;
+  font-size:13.5px;
+}
+.tip b{color:var(--accent);}
+.warn{
+  background:#fbf0ee; border-radius:12px; padding:14px 18px; margin:14px 0; font-size:13.5px;
+}
+.warn b{color:#b05050;}
+.deco{display:inline-block; background:var(--accent-soft); border-radius:6px; padding:1px 8px; font-size:13px;}
+footer{text-align:center; color:var(--sub); font-size:12px; margin-top:30px;}
+@media print{
+  body{background:#fff;}
+  section,header.hero{border:none; padding:20px 0; margin-bottom:8px; border-radius:0;}
+  .wrap{padding:0;}
+}
+</style>
+</head>
+<body>
+<div class="wrap">
+
+<header class="hero">
+  <div class="sub">GUIDE</div>
+  <h1>ハイライトメーカー 使い方ガイド</h1>
+  <p>インスタグラムのハイライト用ストーリー画像（1080×1920）を、トーンマナーを統一しながら簡単に作成できる社内ツールです。<br>
+  URL：<b>https://highlight-maker.netlify.app</b>（PCのChrome / Safari推奨）</p>
+</header>
+
+<section>
+  <h2><span class="num">1</span>基本の流れ（5ステップ）</h2>
+  <ol class="steps">
+    <li><b>プロジェクトを作る</b><small>上部の「＋ 新規」→ サロン名・案件名を入力。案件ごとにプロジェクトを分けて管理できます</small></li>
+    <li><b>テーマを選ぶ</b><small>左の「テーマ」から、アカウントの雰囲気に合うものをクリック。全ページのフォント・配色・レイアウトが一括で統一されます</small></li>
+    <li><b>差し色を選ぶ</b><small>テーマの下の「カラー」から丸いスウォッチをクリック。アクセント色・帯・ボックスなどが連動して変わります</small></li>
+    <li><b>ページを編集する</b><small>左の「ページ一覧」でページを選び、真ん中のフォームに文字を入力・写真をアップロード。右のプレビューに即反映されます</small></li>
+    <li><b>書き出す</b><small>右上の「このページをJPEG」「全ページJPEG」「PDFで一括出力」。そのままインスタのストーリーに投稿できるサイズ（1080×1920）で保存されます</small></li>
+  </ol>
+</section>
+
+<section>
+  <h2><span class="num">2</span>画面の見方</h2>
+  <table>
+    <tr><th>左サイドバー</th><td>テーマ選択／カラー（差し色）／ページ一覧・ページ追加</td></tr>
+    <tr><th>真ん中</th><td>選択中ページの編集フォーム（文字入力・写真アップロード）</td></tr>
+    <tr><th>右</th><td>プレビュー（実際の縦長比率）と書き出しボタン、ページ送り</td></tr>
+    <tr><th>上部バー</th><td>プロジェクトの切り替え・新規・名前変更・複製・削除、JSON書き出し／読み込み</td></tr>
+  </table>
+  <h3>ページ一覧でできること（ページにカーソルを乗せると表示）</h3>
+  <ul>
+    <li><b>↑↓</b>：ページの並べ替え　<b>⧉</b>：複製　<b>✕</b>：削除</li>
+    <li>下の種類選択＋「追加」ボタンで新しいページを追加（15種類）</li>
+  </ul>
+</section>
+
+<section>
+  <h2><span class="num">3</span>ページの種類（テンプレート）</h2>
+  <table>
+    <tr><th>挨拶・初めての方へ</th><td>スタッフ写真＋名前＋紹介文</td></tr>
+    <tr><th>こだわり</th><td>枠ボックスの箇条書き＋本文＋写真</td></tr>
+    <tr><th>こんな方に（チェックリスト）</th><td>✓つきのお悩みリスト</td></tr>
+    <tr><th>テキスト＋写真（フリー）</th><td>自由な本文＋写真。どんな内容にも使える万能型</td></tr>
+    <tr><th>メニュー・料金一覧</th><td>メニュー名と価格のリスト</td></tr>
+    <tr><th>メニュー詳細（価格・初回オフ）</th><td>1メニューの紹介。通常価格の打ち消し線＋「初回」バッジ＋特別価格</td></tr>
+    <tr><th>こんな方におすすめ</th><td>「・」の箇条書きリスト</td></tr>
+    <tr><th>Q&amp;A・よくある質問</th><td>質問と回答のセット（1ページ2〜3個が目安）</td></tr>
+    <tr><th>サロン情報・アクセス</th><td>住所・営業時間・定休日など（空欄の項目は自動で非表示）</td></tr>
+    <tr><th>ご予約方法（ステップ）</th><td>①②③の丸数字ステップ形式</td></tr>
+    <tr><th>ご予約方法（番号リスト）</th><td>1. 2. 3. の下線リスト。項目の下にボタン風の表示も出せる</td></tr>
+    <tr><th>お客様の声（★レビュー）</th><td>★の数＋補足＋口コミ本文</td></tr>
+    <tr><th>実績・経歴（年表）</th><td>年＋できごとの年表形式</td></tr>
+    <tr><th>スタッフ紹介</th><td>写真＋名前＋プロフィール</td></tr>
+    <tr><th>キャンペーン・お知らせ</th><td>期間限定の告知（内容を大きく・期間つき）</td></tr>
+  </table>
+  <div class="tip">💡 <b>1ページに入りきらないときは</b>：項目を減らすか、ページを複製して2枚に分けてください。プレビューではみ出していないか確認できます。</div>
+</section>
+
+<section>
+  <h2><span class="num">4</span>文字の装飾</h2>
+  <p>本文や項目の中に、次の記号を入れると装飾されます。</p>
+  <table>
+    <tr><th><span class="deco">**文字**</span></th><td>アクセント色の太字強調（テーマの差し色に連動）</td></tr>
+    <tr><th><span class="deco">==文字==</span></th><td>マーカー（ベージュ・スモーキーでは下線になります）</td></tr>
+    <tr><th>改行</th><td>入力した改行がそのまま反映されます</td></tr>
+  </table>
+  <p>組み合わせも可能です：<code>**==痩せる・不調の根拠==**が伝えられない</code> → 太字＋下線</p>
+</section>
+
+<section>
+  <h2><span class="num">5</span>写真の入れ方</h2>
+  <ul>
+    <li>写真欄の「画像を選択」からアップロード。自動で縮小・軽量化されます</li>
+    <li>差し替えは再度「画像を選択」、外すときは「削除」</li>
+    <li>写真が未設定のページは、写真スペースなしのレイアウトで出力されます</li>
+  </ul>
+</section>
+
+<section>
+  <h2><span class="num">6</span>保存とバックアップ・納品</h2>
+  <p>編集内容は<b>自動保存</b>されます。ただし保存先は<b>「使っているブラウザの中」</b>です。この点だけ注意してください。</p>
+  <div class="warn">⚠️ <b>別のPC・別のブラウザには自動では引き継がれません。</b>PCの買い替えやスタッフ間の受け渡しには、必ずJSONバックアップを使ってください。</div>
+  <h3>受け渡し・バックアップの手順</h3>
+  <ol>
+    <li>渡す側：上部の「<b>JSON書き出し</b>」→ プロジェクトが1つのファイルで保存されます（写真も入っています）</li>
+    <li>受け取る側：同じURLを開いて「<b>JSON読み込み</b>」→ ファイルを選択</li>
+  </ol>
+  <div class="tip">💡 <b>納品が終わった案件は</b>：JSON書き出しで保管してからプロジェクトを削除しておくと、一覧がすっきりし容量も節約できます。</div>
+</section>
+
+<section>
+  <h2><span class="num">7</span>書き出し（JPEG / PDF）</h2>
+  <table>
+    <tr><th>このページをJPEG</th><td>表示中の1ページだけ保存</td></tr>
+    <tr><th>全ページJPEG</th><td>全ページを1枚ずつ連番で保存（インスタ投稿用はこれ）</td></tr>
+    <tr><th>PDFで一括出力</th><td>全ページを1つのPDFに（確認・共有用に便利）</td></tr>
+  </table>
+  <ul>
+    <li>サイズはすべて実寸の1080×1920（ストーリー・ハイライト用）</li>
+    <li>ファイル名は「プロジェクト名_連番_ページ名」で自動的に付きます</li>
+    <li>「NEXT→」ボタンは標準では非表示。必要なページだけ編集フォーム下のチェックでオンにできます</li>
+  </ul>
+</section>
+
+<section>
+  <h2><span class="num">8</span>困ったときは</h2>
+  <table>
+    <tr><th>画面が古いまま</th><td><kbd>⌘＋Shift＋R</kbd>（Windowsは <kbd>Ctrl＋Shift＋R</kbd>）で強制リロード</td></tr>
+    <tr><th>書き出しができない</th><td>インターネット接続を確認（書き出し機能は通信が必要です）</td></tr>
+    <tr><th>データが見当たらない</th><td>いつもと同じPC・同じブラウザで開いているか確認。別環境ならJSONで移行</td></tr>
+    <tr><th>デザインの修正・機能追加</th><td>担当者経由でClaudeに「ハイライトメーカーを修正して」と依頼</td></tr>
+  </table>
+</section>
+
+<footer>ハイライトメーカー 使い方ガイド（2026年7月版）</footer>
+</div>
+</body>
+</html>
